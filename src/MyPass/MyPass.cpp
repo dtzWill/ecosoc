@@ -40,7 +40,7 @@ namespace {
 		}
 		void getOperands(Instruction &I) {
 			for (User::op_iterator op = I.op_begin(), e = I.op_end(); op != e; ++op) {
-				errs() << " " << *op;
+				errs() << " " << **op;
 			}
 			errs() << "\n";
 		}
