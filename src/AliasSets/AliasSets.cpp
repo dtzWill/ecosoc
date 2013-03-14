@@ -135,9 +135,27 @@ namespace {
 						finalMemSets[count].insert(*ii);
 					}
 				}
+				++count;
 			}
+			DEBUG(printSets());
 			return false;
 		}
+		
+		void printSets() {
+			int key;
+			for (std::map< int, std::set<int> >::iterator i = finalMemSets.begin(), e = finalMemSets.end();e != i; ++i) {
+				key = i->first;
+				errs() << "Alias set " << key << ": ";
+				for (std::set<int>::iterator ii = i->second.begin(), ee = i->second.end(); ii != ee; ++ii) {
+					errs() << "m" << *ii << " ";
+				}
+				for (std::set<Value*>::iterator ii = finalValueSets[key].begin(), ee = finalValueSets[key].end(); ii != ee; ++ii) {
+					errs() << *ii << " "; 
+				}
+				errs() << "\n";
+			}
+		}
+		
 		virtual void getAnalysisUsage(AnalysisUsage &AU) const {
 			AU.addRequired<PADriver>();
 			AU.setPreservesAll();
