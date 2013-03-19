@@ -80,6 +80,10 @@ std::string llvm::GraphNode::getName(){
 	return stringStream.str();
 }
 
+std::string llvm::GraphNode::getStyle() {
+	return std::string("solid");
+}
+
 int llvm::GraphNode::currentID = 0;
 
 
@@ -110,6 +114,9 @@ GraphNode* llvm::OpNode::clone() {
 	return new OpNode(*this);
 }
 
+Value* llvm::OpNode::getValue() {
+	return value;
+}
 
 
 /*
@@ -132,7 +139,6 @@ std::string llvm::CallNode::getShape() {
 GraphNode* llvm::CallNode::clone() {
 	return new CallNode(*this);
 }
-
 
 /*
  * Class VarNode
@@ -176,6 +182,36 @@ GraphNode* llvm::VarNode::clone() {
 	return new VarNode(*this);
 }
 
+
+/*
+ * Class MemNode
+ */
+std::set<Value*> llvm::MemNode::getAliases() {
+	return AS->getValueSets()[aliasSetID];
+}
+
+std::string llvm::MemNode::getLabel() {
+	std::ostringstream stringStream;
+	stringStream << "Memory " << aliasSetID;
+	return stringStream.str();
+}
+
+std::string llvm::MemNode::getShape() {
+	return std::string("ellipse");
+}
+
+GraphNode* llvm::MemNode::clone() {
+	return new MemNode(*this);
+}
+
+std::string llvm::MemNode::getStyle() {
+	return std::string("dashed");
+}
+
+int llvm::MemNode::getAliasSetId() const {
+	return aliasSetID;
+}
+
 /*
  * Class Graph
  */
@@ -184,7 +220,7 @@ Graph::~Graph () {
 }
 
 Graph Graph::generateSubGraph (Value *src, Value *dst){
-	Graph G;
+	Graph G(this->AS);
 
 	std::map<GraphNode*, GraphNode*> nodeMap;
 
@@ -293,7 +329,7 @@ void Graph::toDot (std::string s, raw_ostream *stream) {
 	for (std::set<GraphNode*>::iterator node = nodes.begin(), end = nodes.end(); node != end; node++){
 
 		if (DefinedNodes.count(*node) == 0) {
-			(*stream) << (*node)->getName() << "[shape=" << (*node)->getShape() << ",label=\"" <<  (*node)->getLabel() << "\"]\n";
+			(*stream) << (*node)->getName() << "[shape=" << (*node)->getShape() << ",style=" << (*node)->getStyle() << ",label=\"" <<  (*node)->getLabel() << "\"]\n";
 			DefinedNodes[*node] = 1;
 		}
 
@@ -303,7 +339,7 @@ void Graph::toDot (std::string s, raw_ostream *stream) {
 		for (std::set<GraphNode*>::iterator succ = succs.begin(), s_end = succs.end(); succ != s_end; succ++){
 
 			if (DefinedNodes.count(*succ) == 0) {
-				(*stream) << (*succ)->getName() << "[shape=" << (*succ)->getShape() << ",label=\"" <<  (*succ)->getLabel() << "\"]\n";
+				(*stream) << (*succ)->getName() << "[shape=" << (*succ)->getShape() << ",style=" << (*succ)->getStyle() << ",label=\"" <<  (*succ)->getLabel() << "\"]\n";
 				DefinedNodes[*succ] = 1;
 			}
 
@@ -329,25 +365,43 @@ GraphNode* Graph::addInst (Value *v)  {
 
 	GraphNode *Op, *Var, *Operand;
 
+	CallInst* CI = dyn_cast<CallInst>(v);
+	bool hasVarNode = true;
+
 	if (isValidInst(v)) { //If is a data manipulator instruction
 		Var = this->findNode(v);
-		if (Var == NULL) { //If it has not processed yet
+		if (Var == NULL || (Var != NULL && findOpNode(v) == NULL)) { //If it has not processed yet
 
-			Var = new VarNode(v);
-			nodes.insert(Var);
+			if (Var == NULL) {
+
+				if ( CI ) {
+					hasVarNode = !CI->getCalledFunction()->getReturnType()->isVoidTy();
+				}
+
+				if (hasVarNode) {
+					if (StoreInst* SI = dyn_cast<StoreInst>(v)) Var = addInst(SI->getOperand(1));
+					else if (isMemoryPointer(v)) Var = new MemNode(AS->getValueSetKey(v), AS);
+					else Var = new VarNode(v);
+					nodes.insert(Var);
+				}
+
+			}
 
 			if (isa<Instruction>(v)) {
 
-				if( CallInst* CI = dyn_cast<CallInst>(v)) {
-					Op = new CallNode(CI->getCalledFunction());
+				if( CI ) {
+					Op = new CallNode(CI);
 				} else {
-					Op = new OpNode(dyn_cast<Instruction>(v)->getOpcode());
+					Op = new OpNode(dyn_cast<Instruction>(v)->getOpcode(), v);
 				}
 				nodes.insert(Op);
-				Op->connect(Var);
+				if (hasVarNode) Op->connect(Var);
 
 				//Connect the operands to the OpNode
 				for (unsigned int i=0; i<cast<User>(v)->getNumOperands(); i++) {
+
+					if (isa<StoreInst>(v) && i==1) continue;
+
 					Value *v1 = cast<User>(v)->getOperand(i);
 					Operand = this->addInst(v1);
 
@@ -431,19 +485,53 @@ bool Graph::isValidInst(Value *v) {
 	}
 }
 
+bool llvm::Graph::isMemoryPointer(Value* v) {
+	if (v && v->getType()) return v->getType()->isPointerTy();
+	return false;
+}
+
 
 //Return the pointer to the node related to the operand.
 //Return NULL if the operand is not inside map.
 GraphNode* Graph::findNode (Value *op){
 
-	for (std::set<GraphNode*>::iterator i = nodes.begin(), vend = nodes.end(); i != vend; ++i) {
-		if (isa<VarNode>(*i) && dyn_cast<VarNode>(*i)->getValue() == op ){
-			return dyn_cast<VarNode>(*i);
+	if (isMemoryPointer(op)) {
+		for (std::set<GraphNode*>::iterator i = nodes.begin(), vend = nodes.end(); i != vend; ++i) {
+			if (isa<MemNode>(*i) && dyn_cast<MemNode>(*i)->getAliasSetId() == AS->getValueSetKey(op) ){
+				return dyn_cast<MemNode>(*i);
+			}
+		}
+	} else {
+		for (std::set<GraphNode*>::iterator i = nodes.begin(), vend = nodes.end(); i != vend; ++i) {
+			if (isa<VarNode>(*i) && dyn_cast<VarNode>(*i)->getValue() == op ){
+				return dyn_cast<VarNode>(*i);
+			}
+
+
+			/*
+			 * FIXME Allow Duplicated Call Instructions
+			 *
+			 * else if (isa<CallNode>(*i) && dyn_cast<CallNode>(*i)->getValue() == op
+					   && ( dyn_cast<CallNode>(*i)->getCalledFunction()  )  ){
+				return dyn_cast<VarNode>(*i);
+			}*/
 		}
 	}
 
 	return NULL;
 }
+
+OpNode* llvm::Graph::findOpNode(Value* op) {
+
+	for (std::set<GraphNode*>::iterator i = nodes.begin(), vend = nodes.end(); i != vend; ++i) {
+		if (isa<OpNode>(*i) && dyn_cast<OpNode>(*i)->getValue() == op ){
+			return dyn_cast<OpNode>(*i);
+		}
+	}
+
+	return NULL;
+}
+
 
 void llvm::Graph::print() {
 
@@ -497,13 +585,18 @@ void llvm::Graph::deleteCallNodes(Function* F) {
 
 //Class functionDepGraph
 void functionDepGraph::getAnalysisUsage(AnalysisUsage &AU) const {
+	AU.addRequired<AliasSets>();
+
 	AU.setPreservesAll();
 }
 
 bool functionDepGraph::runOnFunction(Function &F) {
 
-    //Making dependency graph
-	depGraph = new llvm::Graph();
+
+	AliasSets* AS = &(getAnalysis<AliasSets>());
+
+	//Making dependency graph
+	depGraph = new llvm::Graph(AS);
 	//Insert instructions in the graph
 	for (Function::iterator BBit = F.begin(), BBend = F.end(); BBit != BBend; ++BBit) {
 		for (BasicBlock::iterator Iit = BBit->begin(), Iend = BBit->end(); Iit != Iend; ++Iit) {
@@ -523,13 +616,17 @@ static RegisterPass<functionDepGraph> X("functionDepGraph", "Function Dependence
 
 //Class moduleDepGraph
 void moduleDepGraph::getAnalysisUsage(AnalysisUsage &AU) const {
+	AU.addRequired<AliasSets>();
+
 	AU.setPreservesAll();
 }
 
 bool moduleDepGraph::runOnModule(Module &M) {
 
+	AliasSets* AS = &(getAnalysis<AliasSets>());
+
     //Making dependency graph
-	depGraph = new Graph();
+	depGraph = new Graph(AS);
 
 	//Insert instructions in the graph
 	for (Module::iterator Fit = M.begin(), Fend = M.end(); Fit != Fend; ++Fit){
@@ -539,7 +636,6 @@ bool moduleDepGraph::runOnModule(Module &M) {
 			}
 		}
 	}
-
 
 	//Connect formal and actual parameters and return values
 	for (Module::iterator Fit = M.begin(), Fend = M.end(); Fit != Fend; ++Fit){
