@@ -12,6 +12,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/CallSite.h"
 #include "llvm/Support/raw_ostream.h"
+#include "../AliasSets/AliasSets.h"
 #include <deque>
 #include <algorithm>
 #include <vector>
@@ -57,18 +58,23 @@ namespace llvm {
 		std::string getName();
 		virtual std::string getLabel() = 0;
 		virtual std::string getShape() = 0;
+		virtual std::string getStyle();
 
 		virtual GraphNode* clone() = 0;
 	};
 
+
 	class OpNode: public GraphNode {
 	private:
 		unsigned int OpCode;
+		Value* value;
 	public:
-		OpNode(int OpCode): GraphNode(), OpCode(OpCode) {this->Class_ID = 1;};
-		static inline bool classof(const GraphNode *N) {return N->getClass_Id()==1;};
+		OpNode(int OpCode): GraphNode(), OpCode(OpCode), value(NULL) {this->Class_ID = 1;};
+		OpNode(int OpCode, Value* v): GraphNode(), OpCode(OpCode), value(v) {this->Class_ID = 1;};
+		static inline bool classof(const GraphNode *N) {return N->getClass_Id()==1 || N->getClass_Id()==3;};
 		unsigned int getOpCode() const;
 		void setOpCode(unsigned int opCode);
+		Value* getValue();
 
 		std::string getLabel();
 		std::string getShape();
@@ -80,7 +86,7 @@ namespace llvm {
 	private:
 		Function* F;
 	public:
-		CallNode(Function* F): OpNode(Instruction::Call), F(F) {this->Class_ID = 3;};
+		CallNode(CallInst* CI): OpNode(Instruction::Call, CI), F(CI->getCalledFunction()) {this->Class_ID = 3;};
 		static inline bool classof(const GraphNode *N) {return N->getClass_Id()==3;};
 		Function* getCalledFunction() const;
 
@@ -104,13 +110,25 @@ namespace llvm {
 		GraphNode* clone();
 	};
 
-	class MemNode: public VarNode {
+
+
+	class MemNode: public GraphNode {
+	private:
+		int aliasSetID;
+		AliasSets *AS;
 	public:
-		vector<Value*> getAliases();
+		MemNode(int aliasSetID, AliasSets *AS): aliasSetID(aliasSetID), AS(AS) {this->Class_ID = 4;};
+		static inline bool classof(const GraphNode *N) {return N->getClass_Id()==4;};
+		std::set<Value*> getAliases();
 		static inline bool classof(const MemNode *N) {return true;};
 
-		//std::string getLabel();
-	};
+		std::string getLabel();
+		std::string getShape();
+		GraphNode* clone();
+		std::string getStyle();
+
+		int getAliasSetId() const;
+};
 
 
 	//Dependence Graph
@@ -119,12 +137,15 @@ namespace llvm {
 
 			std::set<GraphNode*> nodes;
 
+			AliasSets *AS;
+
 		public:
-			Graph() {}; //Constructor
+			Graph(AliasSets *AS): AS(AS) {}; //Constructor
 			~Graph (); //Destructor - Free adjacent matrix's memory
 			GraphNode* addInst (Value *v); //Add an instruction into Dependence Graph
 			void addEdge (GraphNode* src, GraphNode* dst);
-			GraphNode* findNode (Value *op);  //Return the index of operand or -1 if it is not in the internal map
+			GraphNode* findNode(Value *op);  //Return the pointer to the node or NULL if it is not in the graph
+			OpNode* findOpNode(Value *op);  //Return the pointer to the node or NULL if it is not in the graph
 
 			//print graph in dot format
 			void toDot (std::string s); //print in stdErr
@@ -132,6 +153,7 @@ namespace llvm {
 			void toDot (std::string s, raw_ostream *stream); //print in any stream
 
 			bool isValidInst(Value *v); //Return true if the instruction is valid for dependence graph construction
+			bool isMemoryPointer(Value *v); //Return true if the value is a memory pointer
 
 			Graph generateSubGraph (Value *src, Value *dst); //Take a source value and a destination value and find a Connecting Subgraph from source to destination
 			void dfsVisit (GraphNode* u, std::set<GraphNode*> &visitedNodes); //Used by findConnectingSubgraph() method
