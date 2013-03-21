@@ -11,75 +11,41 @@ bool AliasSets::runOnModule(Module &M) {
 	std::map<Value*, std::vector<int> > memoryBlocks = PD.memoryBlock; // map that relates memory positions to its alloca/malloc/... instructions
 	std::map<int, std::set<int> > allPointsTo = PA.allPointsTo(); // sets of alias represented as ints
 	std::map<int, Value*> int2value = PD.int2value; // map to "translate" from int to Value*
-	std::set<int> memPositions; // contains the ints that represent memory positions
 	std::set<Value*> valueSet; // auxiliar value set
+	std::vector<int> aux_mem;
 	std::set<int> intSet; //auxiliar int set
-	std::vector<int> aux; // auxiliar int set
-	std::map<int, std::set<int> > pointedBy; // the transposed allPointTo graph
-//			PA.print();
-	// Discovering which ints represent mem positions
-	for (std::map<Value*, std::vector<int> >::iterator i = memoryBlocks.begin(), e = memoryBlocks.end(); i != e; ++i) {
-		aux = i->second;
-		for (std::vector<int>::iterator ii = aux.begin(), ee = aux.end(); ii != ee; ++ii) {
-			memPositions.insert(*ii);
-		}
-	}
-	// Building transposed graph pointedBy
-	int vert;
-	int pointer;
-	std::set<int> adj;
-	for (std::map<int, std::set<int> >::iterator i = allPointsTo.begin(), e = allPointsTo.end(); i != e; ++i) {
-		vert = i->first; // vertex we will be looking for in adj sets
-		pointedBy[vert].clear();
-		for (std::map<int, std::set<int> >::iterator ii = allPointsTo.begin(), ee = allPointsTo.end(); ii != ee; ++ii) {
-			adj = ii->second;
-			if(adj.count(vert)) {
-			pointer = ii->first;
-				pointedBy[vert].insert(pointer);
-			}
-		}
-	}
-	// Reversed search through graph to find alias sets
-	
-	int memPos;
-	std::map< int, std::set<int> > intAliasSets; // alias sets still represented by ints
-	std::set<int> aliasSet; // auxiliar alias set to build the set above
-	int v;
-	for (std::set<int>::iterator i = memPositions.begin(), e = memPositions.end(); i != e; ++i) { //for each mem position
-		memPos = *i;
-		aliasSet.clear();
-		std::queue<int> q;
-		q.push(memPos);
-		aliasSet.insert(memPos);
-		while (!q.empty()) {
-			v = q.front();
-			q.pop();
-			for (std::set<int>::iterator ii = pointedBy[v].begin(), ee = pointedBy[v].end(); ii != ee; ++ii) {
-				if (!aliasSet.count(*ii)) // if adj vertex is not in alias set
-					aliasSet.insert(*ii); //add it
-					q.push(*ii);
-			}
-		}
-		intAliasSets[memPos] = aliasSet;
-	}
-	// Merge non-disjoint sets
+//	PA.print();
 
-	std::set<int> union_set; //aux set to perform union
-	std::set<int> to_erase; //cannot erase sets that were merged inside loop, so use this flag to mark sets that should've been erased
-	// Merging non-disjoint sets
+	// ** Initializing alias sets - Creating one alias set per pointer */
+	int count = 0;
+	std::set<int> s;
+	for (std::map<int, std::set<int> >::iterator i = allPointsTo.begin(), e = allPointsTo.end(); i != e; ++i) {
+		s.clear();
+		s.insert(i->first);
+		intSets[count] = s; 
+		intPointsTo[count] = i->second;
+		++count;
+	}
+
 	bool changed = true;
+	bool valid;
+	std::set<int> to_erase;
+	std::set<int> aux;
 	while (changed) {
 		changed = false;
-		for (std::map< int, std::set<int> >::iterator i = intAliasSets.begin(), e = intAliasSets.end(); i != e; ++i) { //for each set s
+		for (std::map<int, std::set<int> >::iterator i = intSets.begin(), e = intSets.end(); i != e; ++i) { //for each set s
 			if (!to_erase.count(i->first)) {
-				for (std::set<int>::iterator ii = i->second.begin(), ee = i->second.end(); ii != ee; ++ii) { // for each e in s
-					for (std::map< int, std::set<int> >::iterator iii = intAliasSets.begin(), eee = intAliasSets.end(); iii != eee; ++iii) { // for each set s'
-						if (!to_erase.count(iii->first) && i->first < iii->first && iii->second.count(*ii)) { // if s != s' and e in s'
-							// merge s and s'
+				for (std::set<int>::iterator ii = intPointsTo[i->first].begin(), ee = intPointsTo[i->first].end(); ii != ee; ++ii) { // for each e in s
+					for (std::map<int, std::set<int> >::iterator iii = i, eee = e; iii != eee; ++iii) { // for each set s'
+						valid = !to_erase.count(iii->first) && i->first != iii->first; // s' not to be erased and s != s'
+						if (valid && intPointsTo[iii->first].count(*ii)) { // if valid and e in s', merge s and s'
 							changed = true;
-							std::set_union(i->second.begin(), i->second.end(), iii->second.begin(), iii->second.end(), std::inserter(union_set, union_set.end()));
-							intAliasSets[i->first] = union_set;
-//									errs() << "Merging " << i->first << " and " << iii->first << "\n";
+							aux.clear();
+							std::set_union(i->second.begin(), i->second.end(), iii->second.begin(), iii->second.end(), std::inserter(aux, aux.end()));
+							intSets[i->first] = aux;
+							aux.clear();
+							std::set_union(intPointsTo[i->first].begin(), intPointsTo[i->first].end(), intPointsTo[iii->first].begin(), intPointsTo[iii->first].end(), std::inserter(aux, aux.end()));
+							intPointsTo[i->first] = aux;
 							to_erase.insert(iii->first);
 						}
 					}
@@ -87,14 +53,18 @@ bool AliasSets::runOnModule(Module &M) {
 			}
 		}
 	}
-	for (std::set<int>::iterator i = to_erase.begin(), e = to_erase.end(); i !=e ; ++i) {
-		intAliasSets.erase(*i);
+	std::map<int, std::set<int> >::iterator ii;
+	for (std::set<int>::iterator i = to_erase.begin(), e = to_erase.end(); i != e; ++i) {
+		ii = intSets.find(*i);
+		intSets.erase(ii);
 	}
 
 	//Translate ints to Value* when applicable
-	int count = 0;
+	count = 0;
+	int aux_count = 0;
 	Value* val;
-	for (std::map< int, std::set<int> >::iterator i = intAliasSets.begin(), e = intAliasSets.end(); i != e; ++i) {
+	std::set<int> aliasSet;
+	for (std::map<int, std::set<int> >::iterator i = intSets.begin(), e = intSets.end(); i != e; ++i) {
 		aliasSet = i->second;
 		for (std::set<int>::iterator ii = aliasSet.begin(), ee = aliasSet.end(); ii != ee; ++ii) {
 			if (int2value.count(*ii)) { //if it represents a Value*
@@ -104,23 +74,45 @@ bool AliasSets::runOnModule(Module &M) {
 			else { // it represents a memory position
 				finalMemSets[count].insert(*ii);
 			}
+			aux_count++;
 		}
 		++count;
 	}
+//	DEBUG(
+//		errs() << "PA output had " << allPointsTo.size() << " nodes.\n";
+//		errs() << "Alias Sets pass returns " << aux_count << " nodes.\n";
+//		);
 	DEBUG(AliasSets::printSets());
 	return false;
 }
 		
 void AliasSets::printSets() {
-	int key;
-	for (std::map< int, std::set<int> >::iterator i = finalMemSets.begin(), e = finalMemSets.end();e != i; ++i) {
-		key = i->first;
-		errs() << "Alias set " << key << ": ";
-		for (std::set<int>::iterator ii = i->second.begin(), ee = i->second.end(); ii != ee; ++ii) {
-			errs() << "m" << *ii << " ";
+	int m_size;
+	int v_size;
+	if (finalMemSets.empty()) {
+		m_size = 0;
+	}
+	else {
+		m_size = finalMemSets.rbegin()->first;
+	}
+	if (finalValueSets.empty()) {
+		v_size = 0;
+	}
+	else {
+		v_size = finalValueSets.rbegin()->first;
+	}
+	int max = m_size > v_size ? m_size : v_size;
+	for (int i = 0; i < max; i++) {
+		errs() << "Alias set " << i << ": ";
+		if (finalMemSets.count(i)) {
+			for (std::set<int>::iterator ii = finalMemSets[i].begin(), ee = finalMemSets[i].end(); ii != ee; ++ii) {
+				errs() << "m" << *ii << " ";
+			}
 		}
-		for (std::set<Value*>::iterator ii = finalValueSets[key].begin(), ee = finalValueSets[key].end(); ii != ee; ++ii) {
-			errs() << *ii << " "; 
+		if (finalValueSets.count(i)) {
+			for (std::set<Value*>::iterator ii = finalValueSets[i].begin(), ee = finalValueSets[i].end(); ii != ee; ++ii) {
+				errs() << "m" << *ii << " ";
+			}
 		}
 		errs() << "\n";
 	}
