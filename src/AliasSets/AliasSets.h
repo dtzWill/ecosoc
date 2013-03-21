@@ -21,6 +21,8 @@
 class AliasSets : public ModulePass {
 	std::map< int, std::set<Value*> > finalValueSets;
 	std::map< int, std::set<int> > finalMemSets;
+	std::map<int, std::set<int> > intSets;
+	std::map<int, std::set<int> > intPointsTo;
 	bool runOnModule(Module &M);
 	void printSets();
 	
