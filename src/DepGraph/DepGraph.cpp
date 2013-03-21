@@ -5,7 +5,7 @@
 using namespace llvm;
 
 //*********************************************************************************************************************************************************************
-//																DEPENDENCE GRAPH API
+//                                                                                                                              DEPENDENCE GRAPH API
 //*********************************************************************************************************************************************************************
 //
 // Author: Raphael E. Rodrigues
@@ -27,61 +27,61 @@ using namespace llvm;
  */
 
 GraphNode::GraphNode(){
-	Class_ID = 0;
-	ID = currentID++;
+        Class_ID = 0;
+        ID = currentID++;
 }
 
 GraphNode::~GraphNode (){
 
-	for( std::set<GraphNode*>::iterator pred = predecessors.begin(); pred != predecessors.end(); pred++ ) {
-		(*pred)->successors.erase(this);
-	}
+        for( std::set<GraphNode*>::iterator pred = predecessors.begin(); pred != predecessors.end(); pred++ ) {
+                (*pred)->successors.erase(this);
+        }
 
-	for( std::set<GraphNode*>::iterator succ = successors.begin(); succ != successors.end(); succ++ ) {
-		(*succ)->predecessors.erase(this);
-	}
+        for( std::set<GraphNode*>::iterator succ = successors.begin(); succ != successors.end(); succ++ ) {
+                (*succ)->predecessors.erase(this);
+        }
 
-	successors.clear();
-	predecessors.clear();
+        successors.clear();
+        predecessors.clear();
 }
 
 std::set<GraphNode*> llvm::GraphNode::getSuccessors() {
-	return successors;
+        return successors;
 }
 
 std::set<GraphNode*> llvm::GraphNode::getPredecessors() {
-	return predecessors;
+        return predecessors;
 }
 
 void llvm::GraphNode::connect(GraphNode* dst){
-	this->successors.insert(dst);
-	dst->predecessors.insert(this);
+        this->successors.insert(dst);
+        dst->predecessors.insert(this);
 }
 
 int llvm::GraphNode::getClass_Id() const {
-	return Class_ID;
+        return Class_ID;
 }
 
 int llvm::GraphNode::getId() const {
-	return ID;
+        return ID;
 }
 
 bool llvm::GraphNode::hasSuccessor(GraphNode* succ) {
-	return successors.count(succ) > 0;
+        return successors.count(succ) > 0;
 }
 
 bool llvm::GraphNode::hasPredecessor(GraphNode* pred) {
-	return predecessors.count(pred) > 0;
+        return predecessors.count(pred) > 0;
 }
 
 std::string llvm::GraphNode::getName(){
-	std::ostringstream stringStream;
-	stringStream << "node_" << getId();
-	return stringStream.str();
+        std::ostringstream stringStream;
+        stringStream << "node_" << getId();
+        return stringStream.str();
 }
 
 std::string llvm::GraphNode::getStyle() {
-	return std::string("solid");
+        return std::string("solid");
 }
 
 int llvm::GraphNode::currentID = 0;
@@ -91,31 +91,31 @@ int llvm::GraphNode::currentID = 0;
  * Class OpNode
  */
 unsigned int OpNode::getOpCode() const {
-	return OpCode;
+        return OpCode;
 }
 
 void OpNode::setOpCode(unsigned int opCode) {
-	OpCode = opCode;
+        OpCode = opCode;
 }
 
 std::string llvm::OpNode::getLabel() {
 
-	std::ostringstream stringStream;
-	stringStream << Instruction::getOpcodeName(OpCode);
-	return stringStream.str();
+        std::ostringstream stringStream;
+        stringStream << Instruction::getOpcodeName(OpCode);
+        return stringStream.str();
 
 }
 
 std::string llvm::OpNode::getShape() {
-	return std::string("octagon");
+        return std::string("octagon");
 }
 
 GraphNode* llvm::OpNode::clone() {
-	return new OpNode(*this);
+        return new OpNode(*this);
 }
 
 Value* llvm::OpNode::getValue() {
-	return value;
+        return value;
 }
 
 
@@ -123,63 +123,63 @@ Value* llvm::OpNode::getValue() {
  * Class CallNode
  */
 Function* llvm::CallNode::getCalledFunction() const {
-	return F;
+        return F;
 }
 
 std::string llvm::CallNode::getLabel() {
-	std::ostringstream stringStream;
-	stringStream << "Call " << F->getName().str();
-	return stringStream.str();
+        std::ostringstream stringStream;
+        stringStream << "Call " << F->getName().str();
+        return stringStream.str();
 }
 
 std::string llvm::CallNode::getShape() {
-	return std::string("doubleoctagon");
+        return std::string("doubleoctagon");
 }
 
 GraphNode* llvm::CallNode::clone() {
-	return new CallNode(*this);
+        return new CallNode(*this);
 }
 
 /*
  * Class VarNode
  */
 Value* VarNode::getValue() {
-	return value;
+        return value;
 }
 
 std::string llvm::VarNode::getShape() {
 
-	if (!isa<Constant>(value)) {
-		return std::string("ellipse");
-	} else {
-		return std::string("box");
-	}
+        if (!isa<Constant>(value)) {
+                return std::string("ellipse");
+        } else {
+                return std::string("box");
+        }
 
 }
 
 std::string llvm::VarNode::getLabel() {
 
-	std::ostringstream stringStream;
+        std::ostringstream stringStream;
 
-	if (!isa<Constant>(value)) {
+        if (!isa<Constant>(value)) {
 
-		stringStream << value->getName().str();
+                stringStream << value->getName().str();
 
-	} else {
+        } else {
 
-		if ( ConstantInt* CI = dyn_cast<ConstantInt>(value)) {
-			stringStream << CI->getValue().toString(10,true);
-		} else {
-			stringStream << "Const:" << value->getName().str();
-		}
-	}
+                if ( ConstantInt* CI = dyn_cast<ConstantInt>(value)) {
+                        stringStream << CI->getValue().toString(10,true);
+                } else {
+                        stringStream << "Const:" << value->getName().str();
+                }
+        }
 
-	return stringStream.str();
+        return stringStream.str();
 
 }
 
 GraphNode* llvm::VarNode::clone() {
-	return new VarNode(*this);
+        return new VarNode(*this);
 }
 
 
@@ -187,110 +187,110 @@ GraphNode* llvm::VarNode::clone() {
  * Class MemNode
  */
 std::set<Value*> llvm::MemNode::getAliases() {
-	return AS->getValueSets()[aliasSetID];
+        return AS->getValueSets()[aliasSetID];
 }
 
 std::string llvm::MemNode::getLabel() {
-	std::ostringstream stringStream;
-	stringStream << "Memory " << aliasSetID;
-	return stringStream.str();
+        std::ostringstream stringStream;
+        stringStream << "Memory " << aliasSetID;
+        return stringStream.str();
 }
 
 std::string llvm::MemNode::getShape() {
-	return std::string("ellipse");
+        return std::string("ellipse");
 }
 
 GraphNode* llvm::MemNode::clone() {
-	return new MemNode(*this);
+        return new MemNode(*this);
 }
 
 std::string llvm::MemNode::getStyle() {
-	return std::string("dashed");
+        return std::string("dashed");
 }
 
 int llvm::MemNode::getAliasSetId() const {
-	return aliasSetID;
+        return aliasSetID;
 }
 
 /*
  * Class Graph
  */
 Graph::~Graph () {
-	nodes.clear();
+        nodes.clear();
 }
 
 Graph Graph::generateSubGraph (Value *src, Value *dst){
-	Graph G(this->AS);
+        Graph G(this->AS);
 
-	std::map<GraphNode*, GraphNode*> nodeMap;
+        std::map<GraphNode*, GraphNode*> nodeMap;
 
-	std::set<GraphNode*> visitedNodes1;
-	std::set<GraphNode*> visitedNodes2;
-
-
-	GraphNode* source = findNode(src);
-	GraphNode* destination = findNode(dst);
-
-	if (source == NULL || destination == NULL) {
-		return G;
-	}
+        std::set<GraphNode*> visitedNodes1;
+        std::set<GraphNode*> visitedNodes2;
 
 
-	dfsVisit(source, visitedNodes1);
-	dfsVisitBack(destination, visitedNodes2);
+        GraphNode* source = findNode(src);
+        GraphNode* destination = findNode(dst);
 
-	//check the nodes visited in both directions
-	for (std::set<GraphNode*>::iterator it=visitedNodes1.begin(); it!=visitedNodes1.end(); ++it){
-		if(visitedNodes2.count(*it) > 0) {
-			nodeMap[*it] = (*it)->clone();
-		}
-	}
+        if (source == NULL || destination == NULL) {
+                return G;
+        }
 
-	//connect the new vertices
-	for (std::map<GraphNode*, GraphNode*>::iterator it=nodeMap.begin(); it!=nodeMap.end(); ++it) {
 
-		std::set<GraphNode*> succs = it->first->getSuccessors();
+        dfsVisit(source, visitedNodes1);
+        dfsVisitBack(destination, visitedNodes2);
 
-		for (std::set<GraphNode*>::iterator succ = succs.begin(), s_end = succs.end(); succ != s_end; succ++){
-			if ( nodeMap.count(*succ) != 0  ) {
+        //check the nodes visited in both directions
+        for (std::set<GraphNode*>::iterator it=visitedNodes1.begin(); it!=visitedNodes1.end(); ++it){
+                if(visitedNodes2.count(*it) > 0) {
+                        nodeMap[*it] = (*it)->clone();
+                }
+        }
 
-				it->second->connect( nodeMap[*succ] );
+        //connect the new vertices
+        for (std::map<GraphNode*, GraphNode*>::iterator it=nodeMap.begin(); it!=nodeMap.end(); ++it) {
 
-			}
-		}
+                std::set<GraphNode*> succs = it->first->getSuccessors();
 
-		G.nodes.insert(it->first);
+                for (std::set<GraphNode*>::iterator succ = succs.begin(), s_end = succs.end(); succ != s_end; succ++){
+                        if ( nodeMap.count(*succ) != 0  ) {
 
-	}
+                                it->second->connect( nodeMap[*succ] );
 
-	return G;
+                        }
+                }
+
+                G.nodes.insert(it->first);
+
+        }
+
+        return G;
 }
 
 void Graph::dfsVisit (GraphNode* u, std::set<GraphNode*> &visitedNodes){
 
-	visitedNodes.insert(u);
+        visitedNodes.insert(u);
 
-	std::set<GraphNode*> succs = u->getSuccessors();
+        std::set<GraphNode*> succs = u->getSuccessors();
 
-	for (std::set<GraphNode*>::iterator succ = succs.begin(), s_end = succs.end(); succ != s_end; succ++){
-		if ( visitedNodes.count(*succ) == 0  ) {
-			dfsVisit(*succ, visitedNodes);
-		}
-	}
+        for (std::set<GraphNode*>::iterator succ = succs.begin(), s_end = succs.end(); succ != s_end; succ++){
+                if ( visitedNodes.count(*succ) == 0  ) {
+                        dfsVisit(*succ, visitedNodes);
+                }
+        }
 
 }
 
 void Graph::dfsVisitBack (GraphNode* u, std::set<GraphNode*> &visitedNodes){
 
-	visitedNodes.insert(u);
+        visitedNodes.insert(u);
 
-	std::set<GraphNode*> preds = u->getPredecessors();
+        std::set<GraphNode*> preds = u->getPredecessors();
 
-	for (std::set<GraphNode*>::iterator pred = preds.begin(), s_end = preds.end(); pred != s_end; pred++){
-		if ( visitedNodes.count(*pred) == 0  ) {
-			dfsVisitBack(*pred, visitedNodes);
-		}
-	}
+        for (std::set<GraphNode*>::iterator pred = preds.begin(), s_end = preds.end(); pred != s_end; pred++){
+                if ( visitedNodes.count(*pred) == 0  ) {
+                        dfsVisitBack(*pred, visitedNodes);
+                }
+        }
 
 }
 
@@ -298,196 +298,204 @@ void Graph::dfsVisitBack (GraphNode* u, std::set<GraphNode*> &visitedNodes){
 //Print the graph (.dot format) in the stderr stream.
 void Graph::toDot (std::string s) {
 
-	this->toDot(s, &errs());
+        this->toDot(s, &errs());
 
 }
 
 
 void Graph::toDot (std::string s, const std::string fileName){
 
-	std::string ErrorInfo;
+        std::string ErrorInfo;
 
-	raw_fd_ostream File(fileName.c_str(), ErrorInfo);
+        raw_fd_ostream File(fileName.c_str(), ErrorInfo);
 
-	if (!ErrorInfo.empty()){
-	  errs() << "Error opening file " << fileName << " for writing! Error Info: " << ErrorInfo  << " \n";
-	  return;
-	}
+        if (!ErrorInfo.empty()){
+          errs() << "Error opening file " << fileName << " for writing! Error Info: " << ErrorInfo  << " \n";
+          return;
+        }
 
-	this->toDot(s, &File);
+        this->toDot(s, &File);
 
 }
 
 void Graph::toDot (std::string s, raw_ostream *stream) {
 
-	(*stream)<<"digraph \"DFG for \'"<< s <<"\' function \"{\n";
-	(*stream)<< "label=\"DFG for \'"<< s <<"\' function\";\n";
+        (*stream)<<"digraph \"DFG for \'"<< s <<"\' function \"{\n";
+        (*stream)<< "label=\"DFG for \'"<< s <<"\' function\";\n";
 
-	std::map<GraphNode*,int> DefinedNodes;
-
-
-	for (std::set<GraphNode*>::iterator node = nodes.begin(), end = nodes.end(); node != end; node++){
-
-		if (DefinedNodes.count(*node) == 0) {
-			(*stream) << (*node)->getName() << "[shape=" << (*node)->getShape() << ",style=" << (*node)->getStyle() << ",label=\"" <<  (*node)->getLabel() << "\"]\n";
-			DefinedNodes[*node] = 1;
-		}
+        std::map<GraphNode*,int> DefinedNodes;
 
 
-		std::set<GraphNode*> succs = (*node)->getSuccessors();
+        for (std::set<GraphNode*>::iterator node = nodes.begin(), end = nodes.end(); node != end; node++){
 
-		for (std::set<GraphNode*>::iterator succ = succs.begin(), s_end = succs.end(); succ != s_end; succ++){
+                if (DefinedNodes.count(*node) == 0) {
+                        (*stream) << (*node)->getName() << "[shape=" << (*node)->getShape() << ",style=" << (*node)->getStyle() << ",label=\"" <<  (*node)->getLabel() << "\"]\n";
+                        DefinedNodes[*node] = 1;
+                }
 
-			if (DefinedNodes.count(*succ) == 0) {
-				(*stream) << (*succ)->getName() << "[shape=" << (*succ)->getShape() << ",style=" << (*succ)->getStyle() << ",label=\"" <<  (*succ)->getLabel() << "\"]\n";
-				DefinedNodes[*succ] = 1;
-			}
 
-			//Source
-			(*stream)<<"\"" << (*node)->getName() << "\"";
+                std::set<GraphNode*> succs = (*node)->getSuccessors();
 
-			(*stream)<<"->";
+                for (std::set<GraphNode*>::iterator succ = succs.begin(), s_end = succs.end(); succ != s_end; succ++){
 
-			//Destination
-			(*stream)<<"\"" << (*succ)->getName() << "\"";
+                        if (DefinedNodes.count(*succ) == 0) {
+                                (*stream) << (*succ)->getName() << "[shape=" << (*succ)->getShape() << ",style=" << (*succ)->getStyle() << ",label=\"" <<  (*succ)->getLabel() << "\"]\n";
+                                DefinedNodes[*succ] = 1;
+                        }
 
-			(*stream)<<"\n";
+                        //Source
+                        (*stream)<<"\"" << (*node)->getName() << "\"";
 
-		}
+                        (*stream)<<"->";
 
-	}
+                        //Destination
+                        (*stream)<<"\"" << (*succ)->getName() << "\"";
 
-	(*stream)<<"}\n\n";
+                        (*stream)<<"\n";
+
+                }
+
+        }
+
+        (*stream)<<"}\n\n";
 
 }
 
 GraphNode* Graph::addInst (Value *v)  {
 
-	GraphNode *Op, *Var, *Operand;
+        GraphNode *Op, *Var, *Operand;
 
-	CallInst* CI = dyn_cast<CallInst>(v);
-	bool hasVarNode = true;
+        CallInst* CI = dyn_cast<CallInst>(v);
+        bool hasVarNode = true;
 
-	if (isValidInst(v)) { //If is a data manipulator instruction
-		Var = this->findNode(v);
-		if (Var == NULL || (Var != NULL && findOpNode(v) == NULL)) { //If it has not processed yet
+        if (isValidInst(v)) { //If is a data manipulator instruction
+                Var = this->findNode(v);
 
-			if (Var == NULL) {
+                /*
+                 * If Var is NULL, the value hasn't been processed yet, so we must process it
+                 *
+                 * However, if Var is a Pointer, maybe the memory node already exists but the
+                 * operation node aren't in the graph, yet. Thus we must process it.
+                 */
+                if (Var == NULL || (Var != NULL && findOpNode(v) == NULL)) { //If it has not processed yet
 
-				if ( CI ) {
-					hasVarNode = !CI->getCalledFunction()->getReturnType()->isVoidTy();
-				}
+                        //If Var isn't NULL, we won't create another node for it
+                        if (Var == NULL) {
 
-				if (hasVarNode) {
-					if (StoreInst* SI = dyn_cast<StoreInst>(v)) Var = addInst(SI->getOperand(1));
-					else if (isMemoryPointer(v)) Var = new MemNode(AS->getValueSetKey(v), AS);
-					else Var = new VarNode(v);
-					nodes.insert(Var);
-				}
+                                if ( CI ) {
+                                        hasVarNode = !CI->getCalledFunction()->getReturnType()->isVoidTy();
+                                }
 
-			}
+                                if (hasVarNode) {
+                                        if (StoreInst* SI = dyn_cast<StoreInst>(v)) Var = addInst(SI->getOperand(1));  // We do this here because we want to represent the store instructions as a flow of information of a data to a memory node
+                                        else if (isMemoryPointer(v)) Var = new MemNode(AS->getValueSetKey(v), AS);
+                                        else Var = new VarNode(v);
+                                        nodes.insert(Var);
+                                }
 
-			if (isa<Instruction>(v)) {
+                        }
 
-				if( CI ) {
-					Op = new CallNode(CI);
-				} else {
-					Op = new OpNode(dyn_cast<Instruction>(v)->getOpcode(), v);
-				}
-				nodes.insert(Op);
-				if (hasVarNode) Op->connect(Var);
+                        if (isa<Instruction>(v)) {
 
-				//Connect the operands to the OpNode
-				for (unsigned int i=0; i<cast<User>(v)->getNumOperands(); i++) {
+                                if( CI ) {
+                                        Op = new CallNode(CI);
+                                } else {
+                                        Op = new OpNode(dyn_cast<Instruction>(v)->getOpcode(), v);
+                                }
+                                nodes.insert(Op);
+                                if (hasVarNode) Op->connect(Var);
 
-					if (isa<StoreInst>(v) && i==1) continue;
+                                //Connect the operands to the OpNode
+                                for (unsigned int i=0; i<cast<User>(v)->getNumOperands(); i++) {
 
-					Value *v1 = cast<User>(v)->getOperand(i);
-					Operand = this->addInst(v1);
+                                        if (isa<StoreInst>(v) && i==1) continue; // We do this here because we want to represent the store instructions as a flow of information of a data to a memory node
 
-					if (Operand != NULL) Operand->connect(Op);
-				}
-			}
-		}
+                                        Value *v1 = cast<User>(v)->getOperand(i);
+                                        Operand = this->addInst(v1);
 
-		return Var;
-	}
-	return NULL;
+                                        if (Operand != NULL) Operand->connect(Op);
+                                }
+                        }
+                }
+
+                return Var;
+        }
+        return NULL;
 }
 
 void Graph::addEdge(GraphNode* src, GraphNode* dst){
 
-	nodes.insert(src);
-	nodes.insert(dst);
-	src->connect(dst);
+        nodes.insert(src);
+        nodes.insert(dst);
+        src->connect(dst);
 
 }
 
 
 //It verify if the instruction is valid for the dependence graph, i.e. just data manipulator instructions are important for dependence graph
 bool Graph::isValidInst(Value *v) {
-	if (isa<Instruction>(v))
-		switch (cast<Instruction>(v)->getOpcode()) {
-			//N operands instructions
-			case Instruction::PHI:
-			//3 operands instructions
-			case Instruction::AtomicCmpXchg:
-			case Instruction::AtomicRMW:
-			//2 operands instructions
-			case Instruction::Add:
-			case Instruction::FAdd:
-			case Instruction::Sub:
-			case Instruction::FSub:
-			case Instruction::Mul:
-			case Instruction::FMul:
-			case Instruction::FDiv:
-			case Instruction::UDiv:
-			case Instruction::SDiv:
-			case Instruction::URem:
-			case Instruction::SRem:
-			case Instruction::FRem:
-			case Instruction::Shl:
-			case Instruction::LShr:
-			case Instruction::AShr:
-			case Instruction::And:
-			case Instruction::Or:
-			case Instruction::Xor:
-			case Instruction::GetElementPtr:
-			case Instruction::ExtractElement:
-			case Instruction::ExtractValue:
-			case Instruction::Select:
-			//1 operand instruction
-			case Instruction::Trunc:
-			case Instruction::ZExt:
-			case Instruction::SExt:
-			case Instruction::Load:
-			case Instruction::Store:
-			case Instruction::Alloca:
-			case Instruction::BitCast:
-			case Instruction::PtrToInt:
-			case Instruction::IntToPtr:
-			case Instruction::FPToUI:
-			case Instruction::FPToSI:
-			case Instruction::SIToFP:
-			case Instruction::UIToFP:
-			case Instruction::Call:
-				return true;
-			default:
-				return false;
-		}
-	else if (isa<Constant>(v) && !isa<Function>(v)) {
-			return true;
-		}
-	else if (isa<Argument>(v) ) {
-			return true;
-	} else {
-			return false;
-	}
+        if (isa<Instruction>(v))
+                switch (cast<Instruction>(v)->getOpcode()) {
+                        //N operands instructions
+                        case Instruction::PHI:
+                        //3 operands instructions
+                        case Instruction::AtomicCmpXchg:
+                        case Instruction::AtomicRMW:
+                        //2 operands instructions
+                        case Instruction::Add:
+                        case Instruction::FAdd:
+                        case Instruction::Sub:
+                        case Instruction::FSub:
+                        case Instruction::Mul:
+                        case Instruction::FMul:
+                        case Instruction::FDiv:
+                        case Instruction::UDiv:
+                        case Instruction::SDiv:
+                        case Instruction::URem:
+                        case Instruction::SRem:
+                        case Instruction::FRem:
+                        case Instruction::Shl:
+                        case Instruction::LShr:
+                        case Instruction::AShr:
+                        case Instruction::And:
+                        case Instruction::Or:
+                        case Instruction::Xor:
+                        case Instruction::GetElementPtr:
+                        case Instruction::ExtractElement:
+                        case Instruction::ExtractValue:
+                        case Instruction::Select:
+                        //1 operand instruction
+                        case Instruction::Trunc:
+                        case Instruction::ZExt:
+                        case Instruction::SExt:
+                        case Instruction::Load:
+                        case Instruction::Store:
+                        case Instruction::Alloca:
+                        case Instruction::BitCast:
+                        case Instruction::PtrToInt:
+                        case Instruction::IntToPtr:
+                        case Instruction::FPToUI:
+                        case Instruction::FPToSI:
+                        case Instruction::SIToFP:
+                        case Instruction::UIToFP:
+                        case Instruction::Call:
+                                return true;
+                        default:
+                                return false;
+                }
+        else if (isa<Constant>(v) && !isa<Function>(v)) {
+                        return true;
+                }
+        else if (isa<Argument>(v) ) {
+                        return true;
+        } else {
+                        return false;
+        }
 }
 
 bool llvm::Graph::isMemoryPointer(Value* v) {
-	if (v && v->getType()) return v->getType()->isPointerTy();
-	return false;
+        if (v && v->getType()) return v->getType()->isPointerTy();
+        return false;
 }
 
 
@@ -495,83 +503,74 @@ bool llvm::Graph::isMemoryPointer(Value* v) {
 //Return NULL if the operand is not inside map.
 GraphNode* Graph::findNode (Value *op){
 
-	if (isMemoryPointer(op)) {
-		for (std::set<GraphNode*>::iterator i = nodes.begin(), vend = nodes.end(); i != vend; ++i) {
-			if (isa<MemNode>(*i) && dyn_cast<MemNode>(*i)->getAliasSetId() == AS->getValueSetKey(op) ){
-				return dyn_cast<MemNode>(*i);
-			}
-		}
-	} else {
-		for (std::set<GraphNode*>::iterator i = nodes.begin(), vend = nodes.end(); i != vend; ++i) {
-			if (isa<VarNode>(*i) && dyn_cast<VarNode>(*i)->getValue() == op ){
-				return dyn_cast<VarNode>(*i);
-			}
+        if (isMemoryPointer(op)) {
+                for (std::set<GraphNode*>::iterator i = nodes.begin(), vend = nodes.end(); i != vend; ++i) {
+                        if (isa<MemNode>(*i) && dyn_cast<MemNode>(*i)->getAliasSetId() == AS->getValueSetKey(op) ){
+                                return dyn_cast<MemNode>(*i);
+                        }
+                }
+        } else {
+                for (std::set<GraphNode*>::iterator i = nodes.begin(), vend = nodes.end(); i != vend; ++i) {
+                        if (isa<VarNode>(*i) && dyn_cast<VarNode>(*i)->getValue() == op ){
+                                return dyn_cast<VarNode>(*i);
+                        }
+                }
+        }
 
-
-			/*
-			 * FIXME Allow Duplicated Call Instructions
-			 *
-			 * else if (isa<CallNode>(*i) && dyn_cast<CallNode>(*i)->getValue() == op
-					   && ( dyn_cast<CallNode>(*i)->getCalledFunction()  )  ){
-				return dyn_cast<VarNode>(*i);
-			}*/
-		}
-	}
-
-	return NULL;
+        return NULL;
 }
 
 OpNode* llvm::Graph::findOpNode(Value* op) {
 
-	for (std::set<GraphNode*>::iterator i = nodes.begin(), vend = nodes.end(); i != vend; ++i) {
-		if (isa<OpNode>(*i) && dyn_cast<OpNode>(*i)->getValue() == op ){
-			return dyn_cast<OpNode>(*i);
-		}
-	}
+        for (std::set<GraphNode*>::iterator i = nodes.begin(), vend = nodes.end(); i != vend; ++i) {
+                if (isa<OpNode>(*i) && dyn_cast<OpNode>(*i)->getValue() == op ){
+                        return dyn_cast<OpNode>(*i);
+                }
+        }
 
-	return NULL;
+        return NULL;
 }
 
 
 void llvm::Graph::print() {
 
-	for (std::set<GraphNode*>::iterator node = nodes.begin(), end = nodes.end(); node != end; node++){
+        for (std::set<GraphNode*>::iterator node = nodes.begin(), end = nodes.end(); node != end; node++){
 
-		errs() << "Node ID:" << (*node)->getId() << " Successors:";
-		std::set<GraphNode*> succs = (*node)->getSuccessors();
-		for (std::set<GraphNode*>::iterator succ = succs.begin(), s_end = succs.end(); succ != s_end; succ++){
-			errs() << (*succ)->getId() <<", ";
-		}
+                errs() << "Node ID:" << (*node)->getId() << " Successors:";
+                std::set<GraphNode*> succs = (*node)->getSuccessors();
+                for (std::set<GraphNode*>::iterator succ = succs.begin(), s_end = succs.end(); succ != s_end; succ++){
+                        errs() << (*succ)->getId() <<", ";
+                }
 
-		errs() << " Predecessors:";
-		std::set<GraphNode*> preds = (*node)->getPredecessors();
-		for (std::set<GraphNode*>::iterator pred = preds.begin(), s_end = preds.end(); pred != s_end; pred++){
-			errs() << (*pred)->getId() <<", ";
-		}
+                errs() << " Predecessors:";
+                std::set<GraphNode*> preds = (*node)->getPredecessors();
+                for (std::set<GraphNode*>::iterator pred = preds.begin(), s_end = preds.end(); pred != s_end; pred++){
+                        errs() << (*pred)->getId() <<", ";
+                }
 
-		errs() << "\n";
+                errs() << "\n";
 
-	}
+        }
 
-	errs() << "\n";
+        errs() << "\n";
 
 }
 
 void llvm::Graph::deleteCallNodes(Function* F) {
 
-	for (std::set<GraphNode*>::iterator node = nodes.begin(), end = nodes.end(); node != end; node++){
+        for (std::set<GraphNode*>::iterator node = nodes.begin(), end = nodes.end(); node != end; node++){
 
-		if (CallNode* CN = dyn_cast<CallNode>(*node)) {
-			if (CN->getCalledFunction() == F) {
-				nodes.erase(node);
-				delete CN;
-			}
-		}
-	}
+                if (CallNode* CN = dyn_cast<CallNode>(*node)) {
+                        if (CN->getCalledFunction() == F) {
+                                nodes.erase(node);
+                                delete CN;
+                        }
+                }
+        }
 }
 
 //*********************************************************************************************************************************************************************
-//																DEPENDENCE GRAPH CLIENT
+//                                                                                                                              DEPENDENCE GRAPH CLIENT
 //*********************************************************************************************************************************************************************
 //vector
 // Author: Raphael E. Rodrigues
@@ -585,26 +584,26 @@ void llvm::Graph::deleteCallNodes(Function* F) {
 
 //Class functionDepGraph
 void functionDepGraph::getAnalysisUsage(AnalysisUsage &AU) const {
-	AU.addRequired<AliasSets>();
+        AU.addRequired<AliasSets>();
 
-	AU.setPreservesAll();
+        AU.setPreservesAll();
 }
 
 bool functionDepGraph::runOnFunction(Function &F) {
 
 
-	AliasSets* AS = &(getAnalysis<AliasSets>());
+        AliasSets* AS = &(getAnalysis<AliasSets>());
 
-	//Making dependency graph
-	depGraph = new llvm::Graph(AS);
-	//Insert instructions in the graph
-	for (Function::iterator BBit = F.begin(), BBend = F.end(); BBit != BBend; ++BBit) {
-		for (BasicBlock::iterator Iit = BBit->begin(), Iend = BBit->end(); Iit != Iend; ++Iit) {
-			depGraph->addInst(Iit);
-		}
-	}
+        //Making dependency graph
+        depGraph = new llvm::Graph(AS);
+        //Insert instructions in the graph
+        for (Function::iterator BBit = F.begin(), BBend = F.end(); BBit != BBend; ++BBit) {
+                for (BasicBlock::iterator Iit = BBit->begin(), Iend = BBit->end(); Iit != Iend; ++Iit) {
+                        depGraph->addInst(Iit);
+                }
+        }
 
-	//We don't modify anything, so we must return false
+        //We don't modify anything, so we must return false
     return false;
 }
 
@@ -616,163 +615,162 @@ static RegisterPass<functionDepGraph> X("functionDepGraph", "Function Dependence
 
 //Class moduleDepGraph
 void moduleDepGraph::getAnalysisUsage(AnalysisUsage &AU) const {
-	AU.addRequired<AliasSets>();
+        AU.addRequired<AliasSets>();
 
-	AU.setPreservesAll();
+        AU.setPreservesAll();
 }
 
 bool moduleDepGraph::runOnModule(Module &M) {
 
-	AliasSets* AS = &(getAnalysis<AliasSets>());
+        AliasSets* AS = &(getAnalysis<AliasSets>());
 
     //Making dependency graph
-	depGraph = new Graph(AS);
+        depGraph = new Graph(AS);
 
-	//Insert instructions in the graph
-	for (Module::iterator Fit = M.begin(), Fend = M.end(); Fit != Fend; ++Fit){
-		for (Function::iterator BBit = Fit->begin(), BBend = Fit->end(); BBit != BBend; ++BBit) {
-			for (BasicBlock::iterator Iit = BBit->begin(), Iend = BBit->end(); Iit != Iend; ++Iit) {
-				depGraph->addInst(Iit);
-			}
-		}
-	}
+        //Insert instructions in the graph
+        for (Module::iterator Fit = M.begin(), Fend = M.end(); Fit != Fend; ++Fit){
+                for (Function::iterator BBit = Fit->begin(), BBend = Fit->end(); BBit != BBend; ++BBit) {
+                        for (BasicBlock::iterator Iit = BBit->begin(), Iend = BBit->end(); Iit != Iend; ++Iit) {
+                                depGraph->addInst(Iit);
+                        }
+                }
+        }
 
-	//Connect formal and actual parameters and return values
-	for (Module::iterator Fit = M.begin(), Fend = M.end(); Fit != Fend; ++Fit){
+        //Connect formal and actual parameters and return values
+        for (Module::iterator Fit = M.begin(), Fend = M.end(); Fit != Fend; ++Fit){
 
-		// If the function is empty, do not do anything
-		// Empty functions include externally linked ones (i.e. abort, printf, scanf, ...)
-		if (Fit->begin() == Fit->end())
-			continue;
+                // If the function is empty, do not do anything
+                // Empty functions include externally linked ones (i.e. abort, printf, scanf, ...)
+                if (Fit->begin() == Fit->end())
+                        continue;
 
-		matchParametersAndReturnValues(*Fit);
+                matchParametersAndReturnValues(*Fit);
 
-	}
+        }
 
 
-	//We don't modify anything, so we must return false
+        //We don't modify anything, so we must return false
     return false;
 }
 
 
 void moduleDepGraph::matchParametersAndReturnValues(Function &F) {
 
-	// Only do the matching if F has any use
-	if (!F.hasNUsesOrMore(1)) {
-		return;
-	}
+        // Only do the matching if F has any use
+        if (!F.hasNUsesOrMore(1)) {
+                return;
+        }
 
-	// Data structure which contains the matches between formal and real parameters
-	// First: formal parameter
-	// Second: real parameter
-	SmallVector<std::pair<GraphNode*, GraphNode*>, 4> Parameters(F.arg_size());
+        // Data structure which contains the matches between formal and real parameters
+        // First: formal parameter
+        // Second: real parameter
+        SmallVector<std::pair<GraphNode*, GraphNode*>, 4> Parameters(F.arg_size());
 
-	// Fetch the function arguments (formal parameters) into the data structure
-	Function::arg_iterator argptr;
-	Function::arg_iterator e;
-	unsigned i;
-
-
-	//Create the PHI nodes for the formal parameters
-	for (i = 0, argptr = F.arg_begin(), e = F.arg_end(); argptr != e; ++i, ++argptr) {
-
-		OpNode* argPHI = new OpNode(Instruction::PHI);
-		GraphNode* argNode = NULL;
-		argNode = depGraph->addInst(argptr);
-
-		if (argNode != NULL)
-			depGraph->addEdge(argPHI, argNode);
-
-		Parameters[i].first = argPHI;
-	}
-
-	// Check if the function returns a supported value type. If not, no return value matching is done
-	bool noReturn = F.getReturnType()->isVoidTy();
-
-	// Creates the data structure which receives the return values of the function, if there is any
-	SmallPtrSet<Value*, 8> ReturnValues;
-
-	if (!noReturn) {
-		// Iterate over the basic blocks to fetch all possible return values
-		for (Function::iterator bb = F.begin(), bbend = F.end(); bb != bbend;
-				++bb) {
-			// Get the terminator instruction of the basic block and check if it's
-			// a return instruction: if it's not, continue to next basic block
-			Instruction *terminator = bb->getTerminator();
-
-			ReturnInst *RI = dyn_cast<ReturnInst>(terminator);
-
-			if (!RI)
-				continue;
-
-			// Get the return value and insert in the data structure
-			ReturnValues.insert(RI->getReturnValue());
-		}
-	}
+        // Fetch the function arguments (formal parameters) into the data structure
+        Function::arg_iterator argptr;
+        Function::arg_iterator e;
+        unsigned i;
 
 
-	for (Value::use_iterator UI = F.use_begin(), E = F.use_end(); UI != E;
-			++UI) {
-		User *U = *UI;
+        //Create the PHI nodes for the formal parameters
+        for (i = 0, argptr = F.arg_begin(), e = F.arg_end(); argptr != e; ++i, ++argptr) {
 
-		// Ignore blockaddress uses
-		if (isa<BlockAddress>(U))
-			continue;
+                OpNode* argPHI = new OpNode(Instruction::PHI);
+                GraphNode* argNode = NULL;
+                argNode = depGraph->addInst(argptr);
 
-		// Used by a non-instruction, or not the callee of a function, do not
-		// match.
-		if (!isa<CallInst>(U) && !isa<InvokeInst>(U))
-			continue;
+                if (argNode != NULL)
+                        depGraph->addEdge(argPHI, argNode);
 
-		Instruction *caller = cast<Instruction>(U);
+                Parameters[i].first = argPHI;
+        }
 
-		CallSite CS(caller);
-		if (!CS.isCallee(UI))
-			continue;
+        // Check if the function returns a supported value type. If not, no return value matching is done
+        bool noReturn = F.getReturnType()->isVoidTy();
 
-		// Iterate over the real parameters and put them in the data structure
-		CallSite::arg_iterator AI;
-		CallSite::arg_iterator EI;
+        // Creates the data structure which receives the return values of the function, if there is any
+        SmallPtrSet<Value*, 8> ReturnValues;
 
-		for (i = 0, AI = CS.arg_begin(), EI = CS.arg_end(); AI != EI; ++i, ++AI)
-			Parameters[i].second = depGraph->addInst(*AI);
+        if (!noReturn) {
+                // Iterate over the basic blocks to fetch all possible return values
+                for (Function::iterator bb = F.begin(), bbend = F.end(); bb != bbend;
+                                ++bb) {
+                        // Get the terminator instruction of the basic block and check if it's
+                        // a return instruction: if it's not, continue to next basic block
+                        Instruction *terminator = bb->getTerminator();
+
+                        ReturnInst *RI = dyn_cast<ReturnInst>(terminator);
+
+                        if (!RI)
+                                continue;
+
+                        // Get the return value and insert in the data structure
+                        ReturnValues.insert(RI->getReturnValue());
+                }
+        }
 
 
-		// Match formal and real parameters
-		for (i = 0; i < Parameters.size(); ++i) {
-			depGraph->addEdge(Parameters[i].second, Parameters[i].first);
-		}
+        for (Value::use_iterator UI = F.use_begin(), E = F.use_end(); UI != E;
+                        ++UI) {
+                User *U = *UI;
 
-		// Match return values
-		if (!noReturn) {
+                // Ignore blockaddress uses
+                if (isa<BlockAddress>(U))
+                        continue;
 
-			OpNode* retPHI = new OpNode(Instruction::PHI);
-			GraphNode* callerNode = depGraph->addInst(caller);
-			depGraph->addEdge(retPHI, callerNode);
+                // Used by a non-instruction, or not the callee of a function, do not
+                // match.
+                if (!isa<CallInst>(U) && !isa<InvokeInst>(U))
+                        continue;
 
-			for (SmallPtrSetIterator<Value*> ri = ReturnValues.begin(), re =
-					ReturnValues.end(); ri != re; ++ri) {
-				GraphNode* retNode = depGraph->addInst(*ri);
-				depGraph->addEdge(retNode, retPHI);
-			}
+                Instruction *caller = cast<Instruction>(U);
 
-		}
+                CallSite CS(caller);
+                if (!CS.isCallee(UI))
+                        continue;
 
-		// Real parameters are cleaned before moving to the next use (for safety's sake)
-		for (i = 0; i < Parameters.size(); ++i)
-			Parameters[i].second = NULL;
-	}
+                // Iterate over the real parameters and put them in the data structure
+                CallSite::arg_iterator AI;
+                CallSite::arg_iterator EI;
 
-	depGraph->deleteCallNodes(&F);
+                for (i = 0, AI = CS.arg_begin(), EI = CS.arg_end(); AI != EI; ++i, ++AI)
+                        Parameters[i].second = depGraph->addInst(*AI);
+
+
+                // Match formal and real parameters
+                for (i = 0; i < Parameters.size(); ++i) {
+                        depGraph->addEdge(Parameters[i].second, Parameters[i].first);
+                }
+
+                // Match return values
+                if (!noReturn) {
+
+                        OpNode* retPHI = new OpNode(Instruction::PHI);
+                        GraphNode* callerNode = depGraph->addInst(caller);
+                        depGraph->addEdge(retPHI, callerNode);
+
+                        for (SmallPtrSetIterator<Value*> ri = ReturnValues.begin(), re =
+                                        ReturnValues.end(); ri != re; ++ri) {
+                                GraphNode* retNode = depGraph->addInst(*ri);
+                                depGraph->addEdge(retNode, retPHI);
+                        }
+
+                }
+
+                // Real parameters are cleaned before moving to the next use (for safety's sake)
+                for (i = 0; i < Parameters.size(); ++i)
+                        Parameters[i].second = NULL;
+        }
+
+        depGraph->deleteCallNodes(&F);
 }
 
 
 void llvm::moduleDepGraph::deleteCallNodes(Function* F) {
-	depGraph->deleteCallNodes(F);
+        depGraph->deleteCallNodes(F);
 }
 
 char moduleDepGraph::ID = 0;
 static RegisterPass<moduleDepGraph> Y("moduleDepGraph",
-		"Module Dependence Graph");
-
+                "Module Dependence Graph");
 
