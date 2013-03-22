@@ -388,7 +388,7 @@ GraphNode* Graph::addInst (Value *v)  {
 
                                 if (hasVarNode) {
                                         if (StoreInst* SI = dyn_cast<StoreInst>(v)) Var = addInst(SI->getOperand(1));  // We do this here because we want to represent the store instructions as a flow of information of a data to a memory node
-                                        else if (isMemoryPointer(v)) Var = new MemNode(AS->getValueSetKey(v), AS);
+                                        else if ( (!isa<Constant>(v)) && isMemoryPointer(v)) Var = new MemNode(AS->getValueSetKey(v), AS);
                                         else Var = new VarNode(v);
                                         nodes.insert(Var);
                                 }
@@ -464,6 +464,8 @@ bool Graph::isValidInst(Value *v) {
                         case Instruction::ExtractElement:
                         case Instruction::ExtractValue:
                         case Instruction::Select:
+                        case Instruction::ICmp:
+                        case Instruction::FCmp:
                         //1 operand instruction
                         case Instruction::Trunc:
                         case Instruction::ZExt:
@@ -503,7 +505,7 @@ bool llvm::Graph::isMemoryPointer(Value* v) {
 //Return NULL if the operand is not inside map.
 GraphNode* Graph::findNode (Value *op){
 
-        if (isMemoryPointer(op)) {
+        if ((!isa<Constant>(op)) && isMemoryPointer(op)) {
                 for (std::set<GraphNode*>::iterator i = nodes.begin(), vend = nodes.end(); i != vend; ++i) {
                         if (isa<MemNode>(*i) && dyn_cast<MemNode>(*i)->getAliasSetId() == AS->getValueSetKey(op) ){
                                 return dyn_cast<MemNode>(*i);
