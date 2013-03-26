@@ -182,8 +182,6 @@ namespace llvm {
 
                         AliasSets *AS;
 
-                        void dfsVisit (GraphNode* u, std::set<GraphNode*> &visitedNodes); //Used by findConnectingSubgraph() method
-                        void dfsVisitBack (GraphNode* u, std::set<GraphNode*> &visitedNodes); //Used by findConnectingSubgraph() method
                         bool isValidInst(Value *v); //Return true if the instruction is valid for dependence graph construction
                         bool isMemoryPointer(Value *v); //Return true if the value is a memory pointer
 
@@ -202,6 +200,8 @@ namespace llvm {
 
                         Graph generateSubGraph (Value *src, Value *dst); //Take a source value and a destination value and find a Connecting Subgraph from source to destination
 
+                        void dfsVisit (GraphNode* u, std::set<GraphNode*> &visitedNodes); //Used by findConnectingSubgraph() method
+                        void dfsVisitBack (GraphNode* u, std::set<GraphNode*> &visitedNodes); //Used by findConnectingSubgraph() method
 
                         void deleteCallNodes(Function* F);
 
