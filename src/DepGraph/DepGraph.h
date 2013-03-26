@@ -154,7 +154,6 @@ namespace llvm {
                 MemNode(int aliasSetID, AliasSets *AS): aliasSetID(aliasSetID), AS(AS) {this->Class_ID = 4;};
                 static inline bool classof(const GraphNode *N) {return N->getClass_Id()==4;};
                 std::set<Value*> getAliases();
-                static inline bool classof(const MemNode *N) {return true;};
 
                 std::string getLabel();
                 std::string getShape();
