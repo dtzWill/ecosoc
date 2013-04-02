@@ -1,0 +1,42 @@
+#define DEBUG_TYPE "hello"
+#include "llvm/Pass.h"
+#include "llvm/Function.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/ADT/Statistic.h"
+using namespace llvm;
+
+STATISTIC(MyPassCounter, "Counts number of functions greeted");
+
+namespace {
+	struct MyPass : public FunctionPass {
+		static char ID; // Pass identification, replacement for typeid
+		MyPass() : FunctionPass(ID) {
+	
+		virtual bool runOnFunction(Function &F) {
+			++HelloCounter;
+			errs() << "Hello: ";
+			errs() << "\tFunction " << F.getName()) << '\n';
+			getBlocks(F);
+			return false;
+		}
+		void getBlocks(const Function* F) {
+			BasicBlockListType bbList = F->getBasicBlockList();
+			BasicBlockListType::const_iterator it;
+			int i = 0;
+			for (it = bbList.begin(); it != bbList.end(); it++) {
+				i++;
+				errs() << "\tBasic Block " << i << '\n';
+				getInstructions(it);
+			}
+		void getInstructions(const BasicBlock* B) {
+			InstListType ilList = F->getInstList();
+			InstListType::const_iterator it;
+			for (it = ilList.begin(); it != ilList.end(); it++) {
+				errs() << *it.getOpcodeName();
+			}
+		}
+	};
+}
+
+char MyPass::ID = 0;
+static RegisterPass<MyPass> X("myPass", "My pass: get instructions' names");

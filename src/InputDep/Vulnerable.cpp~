@@ -1,0 +1,44 @@
+#define DEBUG_TYPE "vulnerable"
+#include "llvm/Pass.h"
+#include "llvm/Function.h"
+#include "llvm/BasicBlock.h"
+#include "llvm/Instruction.h"
+#include "llvm/User.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/ADT/Statistic.h"
+#include "llvm/ADT/ilist.h"
+#include "llvm/Instructions.h"
+#include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/Metadata.h"
+#include "llvm/PassAnalysisSupport.h"
+#include "llvm/PADriver.h"
+
+#include "llvm/Module.h"
+
+#include<set>
+#include<map>
+
+#define SET_SIZE 16
+
+using namespace llvm;
+
+namespace {
+	struct Vulnerable : public FunctionPass {
+		static char ID; // Pass identification, replacement for typeid
+		Vulnerable() : FunctionPass(ID) {}
+		virtual bool runOnFunction(Function &F) {
+			DEBUG (errs() << "Function " << F.getName() << "\n";)
+			moduleDepGraph &DG = getAnalysis<moduleDepGraph>();
+			
+			return false;
+		}
+		virtual void getAnalysisUsage(AnalysisUsage &AU) const{
+			AU.setPreservesAll();
+			AU.addRequired<moduleDepGraph>;
+		}
+	};
+}
+
+char Vulnerable::ID = 0;
+static RegisterPass<Vulnerable> X("vul", "Vulnerability pass: looks for functions not totally protected by the canary");
+//INITIALIZE_PASS_DEPENDENCY(PADriver)
