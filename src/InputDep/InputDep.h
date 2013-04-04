@@ -17,36 +17,25 @@
 #include "llvm/Function.h"
 #include "llvm/DepGraph.h"
 #include "llvm/ADT/StringRef.h"
-#include <string>
+#include<set>
 
 using namespace llvm;
+//};
 
-class InputDep : public FunctionPass {
+class InputDep : public ModulePass {
 	private:
-		void getInputDepFuns();
-		bool runOnFunction(Function &F);
+		Graph* depGraph;
+		bool runOnModule(Module &M);
+		void searchForArray(Value* V);
+		bool verifySignature(CallInst &CI, const StringRef &name);
+		std::set<Value*> inputDepArrays;
 	public:
 		static char ID;
 		void getAnalysisUsage(AnalysisUsage &AU) const;
 		InputDep();
-};
+		void printArrays();
+		std::set<Value*> getInputDepArrays();
 
-//class AliasSets : public ModulePass {
-//	std::map< int, std::set<Value*> > finalValueSets;
-//	std::map< int, std::set<int> > finalMemSets;
-//	std::map<int, std::set<int> > intSets;
-//	std::map<int, std::set<int> > intPointsTo;
-//	bool runOnModule(Module &M);
-//	void printSets();
-//	
-//	public:
-//	static char ID;
-//	AliasSets();
-//	void getAnalysisUsage(AnalysisUsage &AU) const;
-//	std::map< int, std::set<Value*> > getValueSets();
-//	std::map< int, std::set<int> > getMemSets();
-//	int getValueSetKey(Value* v);
-//	int getMapSetKey (int m);
-//};
+};
 
 #endif
