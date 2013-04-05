@@ -37,10 +37,12 @@ int Pred::getNumInstrucoes () {
 
 //Funções membro da classe bSSA
 void bSSA::getAnalysisUsage(AnalysisUsage &AU) const {
-        AU.addRequiredTransitive<DominanceFrontier>();
-        AU.addRequiredTransitive<DominatorTree>();
+
         AU.addRequired<functionDepGraph>();
-       
+
+        AU.addRequiredTransitive<DominatorTree>();
+        AU.addRequiredTransitive<DominanceFrontier>();
+
         // This pass modifies the program, but not the CFG
         AU.setPreservesCFG();
 }
@@ -58,19 +60,19 @@ bool bSSA::runOnFunction(Function &F) {
 	g->toDot(F.getName(), Filename);
 
 
-	Value *src, *dst;
-
-
-	//Insert instructions in the graph
-	for (Function::iterator BBit = F.begin(), BBend = F.end(); BBit != BBend; ++BBit) {
-		for (BasicBlock::iterator Iit = BBit->begin(), Iend = BBit->end(); Iit != Iend; ++Iit) {
-			if ( Iit->getName().equals("add4") ) src = Iit;
-			if ( Iit->getName().equals("sub") ) dst = Iit;
-		}
-	}
-
-	Filename = "/tmp/TESTE" + F.getName().str() + ".dot";
-	g->generateSubGraph(src, dst).toDot(F.getName(), Filename);
+//	Value *src, *dst;
+//
+//
+//	//Insert instructions in the graph
+//	for (Function::iterator BBit = F.begin(), BBend = F.end(); BBit != BBend; ++BBit) {
+//		for (BasicBlock::iterator Iit = BBit->begin(), Iend = BBit->end(); Iit != Iend; ++Iit) {
+//			if ( Iit->getName().equals("add4") ) src = Iit;
+//			if ( Iit->getName().equals("sub") ) dst = Iit;
+//		}
+//	}
+//
+//	Filename = "/tmp/TESTE" + F.getName().str() + ".dot";
+//	g->generateSubGraph(src, dst).toDot(F.getName(), Filename);
 
 	//testSrc = g->getValue(0);
 	//testDst = g->getValue(12);

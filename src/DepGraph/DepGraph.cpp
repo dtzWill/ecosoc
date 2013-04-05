@@ -4,6 +4,7 @@
 
 using namespace llvm;
 
+
 //*********************************************************************************************************************************************************************
 //                                                                                                                              DEPENDENCE GRAPH API
 //*********************************************************************************************************************************************************************
@@ -123,12 +124,20 @@ Value* llvm::OpNode::getValue() {
  * Class CallNode
  */
 Function* llvm::CallNode::getCalledFunction() const {
-        return F;
+        return CI->getCalledFunction();
 }
 
 std::string llvm::CallNode::getLabel() {
         std::ostringstream stringStream;
-        stringStream << "Call " << F->getName().str();
+
+        stringStream << "Call ";
+        if(Function* F = getCalledFunction())
+        	stringStream << F->getName().str();
+        else if (CI->hasName())
+        	stringStream << "*(" << CI->getName().str() << ")";
+        else
+        	stringStream << "*(Unnamed)";
+
         return stringStream.str();
 }
 
@@ -187,7 +196,7 @@ GraphNode* llvm::VarNode::clone() {
  * Class MemNode
  */
 std::set<Value*> llvm::MemNode::getAliases() {
-        return AS->getValueSets()[aliasSetID];
+        return USE_ALIAS_SETS ? AS->getValueSets()[aliasSetID] : std::set<Value*>();
 }
 
 std::string llvm::MemNode::getLabel() {
@@ -383,12 +392,16 @@ GraphNode* Graph::addInst (Value *v)  {
                         if (Var == NULL) {
 
                                 if ( CI ) {
-                                        hasVarNode = !CI->getCalledFunction()->getReturnType()->isVoidTy();
+                                    //errs() << CI->getCalledFunction() << " - " << *CI << "\n";
+
+                                    hasVarNode = !CI->getType()->isVoidTy();
+
+                                	//hasVarNode = !CI->getCalledFunction()->getReturnType()->isVoidTy();
                                 }
 
                                 if (hasVarNode) {
                                         if (StoreInst* SI = dyn_cast<StoreInst>(v)) Var = addInst(SI->getOperand(1));  // We do this here because we want to represent the store instructions as a flow of information of a data to a memory node
-                                        else if ( (!isa<Constant>(v)) && isMemoryPointer(v)) Var = new MemNode(AS->getValueSetKey(v), AS);
+                                        else if ( (!isa<Constant>(v)) && isMemoryPointer(v)) Var = new MemNode(USE_ALIAS_SETS ? AS->getValueSetKey(v) : 0, AS);
                                         else Var = new VarNode(v);
                                         nodes.insert(Var);
                                 }
@@ -507,7 +520,7 @@ GraphNode* Graph::findNode (Value *op){
 
         if ((!isa<Constant>(op)) && isMemoryPointer(op)) {
                 for (std::set<GraphNode*>::iterator i = nodes.begin(), vend = nodes.end(); i != vend; ++i) {
-                        if (isa<MemNode>(*i) && dyn_cast<MemNode>(*i)->getAliasSetId() == AS->getValueSetKey(op) ){
+                        if (isa<MemNode>(*i) && dyn_cast<MemNode>(*i)->getAliasSetId() == (USE_ALIAS_SETS ? AS->getValueSetKey(op) : 0) ){
                                 return dyn_cast<MemNode>(*i);
                         }
                 }
@@ -594,7 +607,9 @@ void functionDepGraph::getAnalysisUsage(AnalysisUsage &AU) const {
 bool functionDepGraph::runOnFunction(Function &F) {
 
 
-        AliasSets* AS = &(getAnalysis<AliasSets>());
+        AliasSets* AS = NULL;
+
+        if (USE_ALIAS_SETS) AS = &(getAnalysis<AliasSets>());
 
         //Making dependency graph
         depGraph = new llvm::Graph(AS);
@@ -624,7 +639,9 @@ void moduleDepGraph::getAnalysisUsage(AnalysisUsage &AU) const {
 
 bool moduleDepGraph::runOnModule(Module &M) {
 
-        AliasSets* AS = &(getAnalysis<AliasSets>());
+    AliasSets* AS = NULL;
+
+    if (USE_ALIAS_SETS) AS = &(getAnalysis<AliasSets>());
 
     //Making dependency graph
         depGraph = new Graph(AS);

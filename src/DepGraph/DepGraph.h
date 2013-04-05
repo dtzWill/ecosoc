@@ -1,6 +1,8 @@
 #ifndef DEPGRAPH_H_
 #define DEPGRAPH_H_
 
+#define USE_ALIAS_SETS false
+
 #include "llvm/Pass.h"
 #include "llvm/Module.h"
 #include "llvm/ADT/Statistic.h"
@@ -106,9 +108,9 @@ namespace llvm {
          */
         class CallNode: public OpNode {
         private:
-                Function* F;
+        		CallInst* CI;
         public:
-                CallNode(CallInst* CI): OpNode(Instruction::Call, CI), F(CI->getCalledFunction()) {this->Class_ID = 3;};
+                CallNode(CallInst* CI): OpNode(Instruction::Call, CI), CI(CI) {this->Class_ID = 3;};
                 static inline bool classof(const GraphNode *N) {return N->getClass_Id()==3;};
                 Function* getCalledFunction() const;
 

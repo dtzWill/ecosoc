@@ -257,29 +257,29 @@ void PADriver::addConstraints(Function &F) {
                                                         int a = Value2Int(ptr);
                                                         int b = Value2Int(v);
 
-                                                        // Handle the case when the value operand is a
-                                                        // GetElementPtr Constant Expression
-                                                        if (ConstantExpr* ce = dyn_cast<ConstantExpr>(v)) {
-                                                                if (ce->getOpcode() == Instruction::GetElementPtr) {
-                                                                        
-                                                                        // Here we create an instruction from
-                                                                        // the value operand
-                                                                        SmallVector<Value*,4> ValueOperands;
-                                                                        for (User::op_iterator opi = ce->op_begin(), E = ce->op_end(); opi != E; ++opi)
-                                                                                ValueOperands.push_back(cast<Value>(opi));
-                                                                        ArrayRef<Value*> Ops(ValueOperands);
-
-                                                                        GetElementPtrInst* gepi = 0;
-                                                                        if (cast<GEPOperator>(ce)->isInBounds())
-                                                                                gepi = GetElementPtrInst::CreateInBounds(Ops[0], Ops.slice(1), "GEPI");
-                                                                        else
-                                                                                gepi= GetElementPtrInst::Create(Ops[0], Ops.slice(1), "GEPI");
-
-                                                                        //errs() << *gepi << "\n";
-                                                                        handleGetElementPtr(gepi);
-                                                                        b = Value2Int(gepi);
-                                                                }
-                                                        }
+//                                                        // Handle the case when the value operand is a
+//                                                        // GetElementPtr Constant Expression
+//                                                        if (ConstantExpr* ce = dyn_cast<ConstantExpr>(v)) {
+//                                                                if (ce->getOpcode() == Instruction::GetElementPtr) {
+//
+//                                                                        // Here we create an instruction from
+//                                                                        // the value operand
+//                                                                        SmallVector<Value*,4> ValueOperands;
+//                                                                        for (User::op_iterator opi = ce->op_begin(), E = ce->op_end(); opi != E; ++opi)
+//                                                                                ValueOperands.push_back(cast<Value>(opi));
+//                                                                        ArrayRef<Value*> Ops(ValueOperands);
+//
+//                                                                        GetElementPtrInst* gepi = 0;
+//                                                                        if (cast<GEPOperator>(ce)->isInBounds())
+//                                                                                gepi = GetElementPtrInst::CreateInBounds(Ops[0], Ops.slice(1), "GEPI");
+//                                                                        else
+//                                                                                gepi= GetElementPtrInst::Create(Ops[0], Ops.slice(1), "GEPI");
+//
+//                                                                        //errs() << *gepi << "\n";
+//                                                                        handleGetElementPtr(gepi);
+//                                                                        b = Value2Int(gepi);
+//                                                                }
+//                                                        }
 
                                                         //errs() << "  >> Pointer: " << *ptr << "\n";
                                                         //errs() << "  >> Value:   " << *v << "\n";
@@ -873,7 +873,7 @@ int PADriver::Value2Int(Value *v) {
         }
         else {
                 nameMap[n] = "unknown";
-                errs() << "Unnamed: " << *(v->getType()) << "\n";
+                //errs() << "Unnamed: " << *(v->getType()) << "\n";
         }
 
         return n;
