@@ -46,6 +46,7 @@ namespace llvm {
 			bool runOnModule(Module& M);
 
 			bool isInputDependent(Value* V);
+			std::set<Value*> getInputDepValues();
 
         };
 

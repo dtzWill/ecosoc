@@ -169,5 +169,12 @@ bool llvm::InputDeps::isInputDependent(Value* V) {
 	return inputDepValues.count(V);
 }
 
+std::set<Value*> llvm::InputDeps::getInputDepValues() {
+	return inputDepValues;
+}
+
+
 char InputDeps::ID = 0;
 static RegisterPass<InputDeps> Y("input-deps", "Track Input Dependencies");
+
+
