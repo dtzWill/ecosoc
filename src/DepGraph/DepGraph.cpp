@@ -34,29 +34,29 @@ GraphNode::GraphNode(){
 
 GraphNode::~GraphNode (){
 
-        for( std::set<GraphNode*>::iterator pred = predecessors.begin(); pred != predecessors.end(); pred++ ) {
-                (*pred)->successors.erase(this);
+        for( std::map<GraphNode*, edgeType>::iterator pred = predecessors.begin(); pred != predecessors.end(); pred++ ) {
+        	(*pred).first->successors.erase(this);
         }
 
-        for( std::set<GraphNode*>::iterator succ = successors.begin(); succ != successors.end(); succ++ ) {
-                (*succ)->predecessors.erase(this);
+        for( std::map<GraphNode*, edgeType>::iterator succ = successors.begin(); succ != successors.end(); succ++ ) {
+        	(*succ).first->predecessors.erase(this);
         }
 
         successors.clear();
         predecessors.clear();
 }
 
-std::set<GraphNode*> llvm::GraphNode::getSuccessors() {
+std::map<GraphNode*, edgeType> llvm::GraphNode::getSuccessors() {
         return successors;
 }
 
-std::set<GraphNode*> llvm::GraphNode::getPredecessors() {
+std::map<GraphNode*, edgeType> llvm::GraphNode::getPredecessors() {
         return predecessors;
 }
 
-void llvm::GraphNode::connect(GraphNode* dst){
-        this->successors.insert(dst);
-        dst->predecessors.insert(this);
+void llvm::GraphNode::connect(GraphNode* dst, edgeType type){
+        this->successors[dst] = type;
+        dst->predecessors[this] = type;
 }
 
 int llvm::GraphNode::getClass_Id() const {
@@ -258,12 +258,12 @@ Graph Graph::generateSubGraph (Value *src, Value *dst){
         //connect the new vertices
         for (std::map<GraphNode*, GraphNode*>::iterator it=nodeMap.begin(); it!=nodeMap.end(); ++it) {
 
-                std::set<GraphNode*> succs = it->first->getSuccessors();
+                std::map<GraphNode*, edgeType> succs = it->first->getSuccessors();
 
-                for (std::set<GraphNode*>::iterator succ = succs.begin(), s_end = succs.end(); succ != s_end; succ++){
-                        if ( nodeMap.count(*succ) != 0  ) {
+                for (std::map<GraphNode*, edgeType>::iterator succ = succs.begin(), s_end = succs.end(); succ != s_end; succ++){
+                        if ( nodeMap.count(succ->first) != 0  ) {
 
-                                it->second->connect( nodeMap[*succ] );
+                                it->second->connect( nodeMap[succ->first], succ->second );
 
                         }
                 }
@@ -279,11 +279,11 @@ void Graph::dfsVisit (GraphNode* u, std::set<GraphNode*> &visitedNodes){
 
         visitedNodes.insert(u);
 
-        std::set<GraphNode*> succs = u->getSuccessors();
+        std::map<GraphNode*, edgeType> succs = u->getSuccessors();
 
-        for (std::set<GraphNode*>::iterator succ = succs.begin(), s_end = succs.end(); succ != s_end; succ++){
-                if ( visitedNodes.count(*succ) == 0  ) {
-                        dfsVisit(*succ, visitedNodes);
+        for (std::map<GraphNode*, edgeType>::iterator succ = succs.begin(), s_end = succs.end(); succ != s_end; succ++){
+                if ( visitedNodes.count(succ->first) == 0  ) {
+                        dfsVisit(succ->first, visitedNodes);
                 }
         }
 
@@ -293,11 +293,11 @@ void Graph::dfsVisitBack (GraphNode* u, std::set<GraphNode*> &visitedNodes){
 
         visitedNodes.insert(u);
 
-        std::set<GraphNode*> preds = u->getPredecessors();
+        std::map<GraphNode*, edgeType> preds = u->getPredecessors();
 
-        for (std::set<GraphNode*>::iterator pred = preds.begin(), s_end = preds.end(); pred != s_end; pred++){
-                if ( visitedNodes.count(*pred) == 0  ) {
-                        dfsVisitBack(*pred, visitedNodes);
+        for (std::map<GraphNode*, edgeType>::iterator pred = preds.begin(), s_end = preds.end(); pred != s_end; pred++){
+                if ( visitedNodes.count(pred->first) == 0  ) {
+                        dfsVisitBack(pred->first, visitedNodes);
                 }
         }
 
@@ -343,13 +343,16 @@ void Graph::toDot (std::string s, raw_ostream *stream) {
                 }
 
 
-                std::set<GraphNode*> succs = (*node)->getSuccessors();
+                std::map<GraphNode*, edgeType> succs = (*node)->getSuccessors();
 
-                for (std::set<GraphNode*>::iterator succ = succs.begin(), s_end = succs.end(); succ != s_end; succ++){
+                for (std::map<GraphNode*, edgeType>::iterator succ = succs.begin(), s_end = succs.end(); succ != s_end; succ++){
 
-                        if (DefinedNodes.count(*succ) == 0) {
-                                (*stream) << (*succ)->getName() << "[shape=" << (*succ)->getShape() << ",style=" << (*succ)->getStyle() << ",label=\"" <<  (*succ)->getLabel() << "\"]\n";
-                                DefinedNodes[*succ] = 1;
+                        if (DefinedNodes.count(succ->first) == 0) {
+                                (*stream) << (succ->first)->getName()
+                                		  << "[shape=" << (succ->first)->getShape()
+                                		  << ",style=" << (succ->first)->getStyle()
+                                		  << ",label=\"" <<  (succ->first)->getLabel() << "\"]\n";
+                                DefinedNodes[succ->first] = 1;
                         }
 
                         //Source
@@ -358,7 +361,9 @@ void Graph::toDot (std::string s, raw_ostream *stream) {
                         (*stream)<<"->";
 
                         //Destination
-                        (*stream)<<"\"" << (*succ)->getName() << "\"";
+                        (*stream)<<"\"" << (succ->first)->getName() << "\"";
+
+                        if (succ->second == etControl) (*stream)<< " [style=dashed]";
 
                         (*stream)<<"\n";
 
@@ -436,11 +441,11 @@ GraphNode* Graph::addInst (Value *v)  {
         return NULL;
 }
 
-void Graph::addEdge(GraphNode* src, GraphNode* dst){
+void Graph::addEdge(GraphNode* src, GraphNode* dst, edgeType type){
 
         nodes.insert(src);
         nodes.insert(dst);
-        src->connect(dst);
+        src->connect(dst, type);
 
 }
 
@@ -546,30 +551,6 @@ OpNode* llvm::Graph::findOpNode(Value* op) {
         return NULL;
 }
 
-
-void llvm::Graph::print() {
-
-        for (std::set<GraphNode*>::iterator node = nodes.begin(), end = nodes.end(); node != end; node++){
-
-                errs() << "Node ID:" << (*node)->getId() << " Successors:";
-                std::set<GraphNode*> succs = (*node)->getSuccessors();
-                for (std::set<GraphNode*>::iterator succ = succs.begin(), s_end = succs.end(); succ != s_end; succ++){
-                        errs() << (*succ)->getId() <<", ";
-                }
-
-                errs() << " Predecessors:";
-                std::set<GraphNode*> preds = (*node)->getPredecessors();
-                for (std::set<GraphNode*>::iterator pred = preds.begin(), s_end = preds.end(); pred != s_end; pred++){
-                        errs() << (*pred)->getId() <<", ";
-                }
-
-                errs() << "\n";
-
-        }
-
-        errs() << "\n";
-
-}
 
 void llvm::Graph::deleteCallNodes(Function* F) {
 
@@ -791,5 +772,6 @@ void llvm::moduleDepGraph::deleteCallNodes(Function* F) {
 
 char moduleDepGraph::ID = 0;
 static RegisterPass<moduleDepGraph> Y("moduleDepGraph",
-                "Module Dependence Graph");
+		"Module Dependence Graph");
+
 

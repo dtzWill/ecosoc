@@ -27,6 +27,8 @@ using namespace std;
 
 namespace llvm {
 
+		typedef enum {etData = 0, etControl = 1} edgeType;
+
         /*
          * Class GraphNode
          *
@@ -45,8 +47,8 @@ namespace llvm {
          */
         class GraphNode {
         private:
-                std::set<GraphNode*> successors;
-                std::set<GraphNode*> predecessors;
+                std::map<GraphNode*, edgeType> successors;
+                std::map<GraphNode*, edgeType> predecessors;
 
                 static int currentID;
                 int ID;
@@ -58,13 +60,13 @@ namespace llvm {
                 virtual ~GraphNode ();
 
                 static inline bool classof(const GraphNode *N) {return true;};
-                std::set<GraphNode*> getSuccessors();
+                std::map<GraphNode*, edgeType> getSuccessors();
                 bool hasSuccessor(GraphNode* succ);
 
-                std::set<GraphNode*> getPredecessors();
+                std::map<GraphNode*, edgeType> getPredecessors();
                 bool hasPredecessor(GraphNode* pred);
 
-                void connect(GraphNode* dst);
+                void connect(GraphNode* dst, edgeType type=etData);
                 int getClass_Id() const;
                 int getId() const;
                 std::string getName();
@@ -191,7 +193,9 @@ namespace llvm {
                         Graph(AliasSets *AS): AS(AS) {}; //Constructor
                         ~Graph (); //Destructor - Free adjacent matrix's memory
                         GraphNode* addInst (Value *v); //Add an instruction into Dependence Graph
-                        void addEdge (GraphNode* src, GraphNode* dst);
+
+                        void addEdge (GraphNode* src, GraphNode* dst, edgeType type=etData);
+
                         GraphNode* findNode(Value *op);  //Return the pointer to the node or NULL if it is not in the graph
                         OpNode* findOpNode(Value *op);  //Return the pointer to the node or NULL if it is not in the graph
 
@@ -207,7 +211,6 @@ namespace llvm {
 
                         void deleteCallNodes(Function* F);
 
-                        void print();
 
         };
 
