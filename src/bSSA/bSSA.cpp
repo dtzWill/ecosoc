@@ -37,10 +37,12 @@ int Pred::getNumInstrucoes () {
 
 //Funções membro da classe bSSA
 void bSSA::getAnalysisUsage(AnalysisUsage &AU) const {
-        AU.addRequiredTransitive<DominanceFrontier>();
-        AU.addRequiredTransitive<DominatorTree>();
+
         AU.addRequired<functionDepGraph>();
-       
+
+        AU.addRequiredTransitive<DominatorTree>();
+        AU.addRequiredTransitive<DominanceFrontier>();
+
         // This pass modifies the program, but not the CFG
         AU.setPreservesCFG();
 }
@@ -60,7 +62,7 @@ bool bSSA::runOnFunction(Function &F) {
 
 //	Value *src, *dst;
 //
-
+//
 //	//Insert instructions in the graph
 //	for (Function::iterator BBit = F.begin(), BBend = F.end(); BBit != BBend; ++BBit) {
 //		for (BasicBlock::iterator Iit = BBit->begin(), Iend = BBit->end(); Iit != Iend; ++Iit) {

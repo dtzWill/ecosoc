@@ -18,11 +18,17 @@
 #include<set>
 #include<map>
 #include<queue>
+
 class AliasSets : public ModulePass {
 	std::map< int, std::set<Value*> > finalValueSets;
 	std::map< int, std::set<int> > finalMemSets;
+	std::map<int, std::set<int> > intSets;
+	std::map<int, std::set<int> > intPointsTo;
 	bool runOnModule(Module &M);
 	void printSets();
+	void printIntSets(std::set<int> to_erase);
+	void mergeSets(int i, int j);
+	bool analyzeSets();
 	
 	public:
 	static char ID;
