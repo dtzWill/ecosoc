@@ -740,7 +740,7 @@ bool moduleDepGraph::runOnModule(Module &M) {
 void moduleDepGraph::matchParametersAndReturnValues(Function &F) {
 
         // Only do the matching if F has any use
-        if (!F.hasNUsesOrMore(1)) {
+        if (F.isVarArg() ||  !F.hasNUsesOrMore(1)) {
                 return;
         }
 
@@ -815,6 +815,10 @@ void moduleDepGraph::matchParametersAndReturnValues(Function &F) {
                 // Iterate over the real parameters and put them in the data structure
                 CallSite::arg_iterator AI;
                 CallSite::arg_iterator EI;
+
+
+
+
 
                 for (i = 0, AI = CS.arg_begin(), EI = CS.arg_end(); AI != EI; ++i, ++AI)
                         Parameters[i].second = depGraph->addInst(*AI);
