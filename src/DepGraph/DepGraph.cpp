@@ -4,7 +4,6 @@
 
 using namespace llvm;
 
-
 //*********************************************************************************************************************************************************************
 //                                                                                                                              DEPENDENCE GRAPH API
 //*********************************************************************************************************************************************************************
@@ -17,9 +16,6 @@ using namespace llvm;
 // Institution: Computer Science department of Federal University of Minas Gerais
 //
 //*********************************************************************************************************************************************************************
-
-
-
 
 
 
@@ -115,7 +111,7 @@ GraphNode* llvm::OpNode::clone() {
         return new OpNode(*this);
 }
 
-Value* llvm::OpNode::getValue() {
+llvm::Value* llvm::OpNode::getValue() {
         return value;
 }
 
@@ -152,7 +148,7 @@ GraphNode* llvm::CallNode::clone() {
 /*
  * Class VarNode
  */
-Value* VarNode::getValue() {
+llvm::Value* VarNode::getValue() {
         return value;
 }
 
@@ -195,8 +191,8 @@ GraphNode* llvm::VarNode::clone() {
 /*
  * Class MemNode
  */
-std::set<Value*> llvm::MemNode::getAliases() {
-        return USE_ALIAS_SETS ? AS->getValueSets()[aliasSetID] : std::set<Value*>();
+std::set<llvm::Value*> llvm::MemNode::getAliases() {
+        return USE_ALIAS_SETS ? AS->getValueSets()[aliasSetID] : std::set<llvm::Value*>();
 }
 
 std::string llvm::MemNode::getLabel() {
@@ -513,7 +509,7 @@ bool Graph::isValidInst(Value *v) {
         }
 }
 
-bool llvm::Graph::isMemoryPointer(Value* v) {
+bool llvm::Graph::isMemoryPointer(llvm::Value* v) {
         if (v && v->getType()) return v->getType()->isPointerTy();
         return false;
 }
@@ -540,7 +536,25 @@ GraphNode* Graph::findNode (Value *op){
         return NULL;
 }
 
-OpNode* llvm::Graph::findOpNode(Value* op) {
+
+std::set<GraphNode*> Graph::findNodes(std::set<Value*> values){
+
+	std::set<GraphNode*> result;
+
+	for ( std::set<Value*>::iterator i = values.begin(), end = values.end(); i != end; i++) {
+
+		if (GraphNode* node = findNode(*i)) {
+			result.insert(node);
+		}
+
+	}
+
+	return result;
+}
+
+
+
+OpNode* llvm::Graph::findOpNode(llvm::Value* op) {
 
         for (std::set<GraphNode*>::iterator i = nodes.begin(), vend = nodes.end(); i != vend; ++i) {
                 if (isa<OpNode>(*i) && dyn_cast<OpNode>(*i)->getValue() == op ){
@@ -564,6 +578,75 @@ void llvm::Graph::deleteCallNodes(Function* F) {
                 }
         }
 }
+
+
+std::pair<GraphNode*, int> llvm::Graph::getNearestDependency(llvm::Value* sink, std::set<llvm::Value*> sources) {
+
+	std::pair<llvm::GraphNode*, int> result;
+	result.first = NULL;
+	result.second = -1;
+
+	if (GraphNode* startNode = findNode(sink)) {
+
+
+		std::set<GraphNode*> sourceNodes = findNodes(sources);
+
+		std::map<GraphNode*, int> nodeColor;
+
+		std::list<std::pair<GraphNode*, int> > workList;
+
+		for(std::set<GraphNode*>::iterator Nit = nodes.begin(), Nend = nodes.end(); Nit != Nend; Nit++){
+			nodeColor[*Nit] = 0;
+		}
+
+		workList.push_back(pair<GraphNode*, int> (startNode,0));
+
+		/*
+		 * we will do a breadth search on the predecessors of each node,
+		 * until we find one of the sources. If we don't find any, then the
+		 * sink doesn't depend on any source.
+		 */
+
+		while (workList.size()) {
+
+			GraphNode* workNode = workList.front().first;
+			int currentDistance = workList.front().second;
+
+			nodeColor[workNode] = 1;
+
+			workList.pop_front();
+
+
+
+			if (sourceNodes.count(workNode)) {
+
+				result.first = workNode;
+				result.second = currentDistance;
+				break;
+
+			}
+
+			std::map<GraphNode*, edgeType> preds =  workNode->getPredecessors();
+
+			for (std::map<GraphNode*, edgeType>::iterator pred = preds.begin(), pend = preds.end(); pred != pend; pred++ ) {
+
+				if (nodeColor[pred->first] == 0) { // the node hasn't been processed yet
+
+					nodeColor[pred->first] = 1;
+
+					workList.push_back(pair<GraphNode*, int> (pred->first,currentDistance + 1));
+
+				}
+
+			}
+
+		}
+
+	}
+
+	return result;
+}
+
 
 //*********************************************************************************************************************************************************************
 //                                                                                                                              DEPENDENCE GRAPH CLIENT
@@ -689,7 +772,7 @@ void moduleDepGraph::matchParametersAndReturnValues(Function &F) {
         bool noReturn = F.getReturnType()->isVoidTy();
 
         // Creates the data structure which receives the return values of the function, if there is any
-        SmallPtrSet<Value*, 8> ReturnValues;
+        SmallPtrSet<llvm::Value*, 8> ReturnValues;
 
         if (!noReturn) {
                 // Iterate over the basic blocks to fetch all possible return values
@@ -749,7 +832,7 @@ void moduleDepGraph::matchParametersAndReturnValues(Function &F) {
                         GraphNode* callerNode = depGraph->addInst(caller);
                         depGraph->addEdge(retPHI, callerNode);
 
-                        for (SmallPtrSetIterator<Value*> ri = ReturnValues.begin(), re =
+                        for (SmallPtrSetIterator<llvm::Value*> ri = ReturnValues.begin(), re =
                                         ReturnValues.end(); ri != re; ++ri) {
                                 GraphNode* retNode = depGraph->addInst(*ri);
                                 depGraph->addEdge(retNode, retPHI);
@@ -774,4 +857,7 @@ char moduleDepGraph::ID = 0;
 static RegisterPass<moduleDepGraph> Y("moduleDepGraph",
 		"Module Dependence Graph");
 
+char ViewModuleDepGraph::ID = 0;
+static RegisterPass<ViewModuleDepGraph> Z("view-depgraph",
+		"View Module Dependence Graph");
 

@@ -1,7 +1,7 @@
 #ifndef DEPGRAPH_H_
 #define DEPGRAPH_H_
 
-#define USE_ALIAS_SETS false
+#define USE_ALIAS_SETS true
 
 #include "llvm/Pass.h"
 #include "llvm/Module.h"
@@ -12,6 +12,7 @@
 #include "llvm/Support/CFG.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/CallSite.h"
+#include "llvm/Support/GraphWriter.h"
 #include "llvm/Support/raw_ostream.h"
 #include "../AliasSets/AliasSets.h"
 #include <deque>
@@ -197,6 +198,8 @@ namespace llvm {
                         void addEdge (GraphNode* src, GraphNode* dst, edgeType type=etData);
 
                         GraphNode* findNode(Value *op);  //Return the pointer to the node or NULL if it is not in the graph
+                        std::set<GraphNode*> findNodes(std::set<Value*> values);
+
                         OpNode* findOpNode(Value *op);  //Return the pointer to the node or NULL if it is not in the graph
 
                         //print graph in dot format
@@ -210,6 +213,15 @@ namespace llvm {
                         void dfsVisitBack (GraphNode* u, std::set<GraphNode*> &visitedNodes); //Used by findConnectingSubgraph() method
 
                         void deleteCallNodes(Function* F);
+
+                        /*
+                         * Function getNearestDependence
+                         *
+                         * Given a sink, returns the nearest source in the graph and the distance to the nearest source
+                         */
+                        std::pair<GraphNode*, int> getNearestDependency(Value* sink, std::set<Value*> sources);
+
+
 
 
         };
@@ -252,6 +264,34 @@ namespace llvm {
                 Graph* depGraph;
         };
 
+        class ViewModuleDepGraph : public ModulePass {
+        public:
+                static char ID; // Pass identification, replacement for typeid.
+                ViewModuleDepGraph() : ModulePass(ID){}
+
+                void getAnalysisUsage(AnalysisUsage &AU) const{
+                	AU.addRequired<moduleDepGraph>();
+                	AU.setPreservesAll();
+                }
+
+                bool runOnModule(Module& M) {
+
+                	moduleDepGraph& DepGraph = getAnalysis<moduleDepGraph>();
+                	Graph *g = DepGraph.depGraph;
+
+                	std::string tmp = M.getModuleIdentifier();
+                	replace(tmp.begin(), tmp.end(), '\\', '_');
+
+                	std::string Filename = "/tmp/" + tmp + ".dot";
+
+                	//Print dependency graph (in dot format)
+                	g->toDot(M.getModuleIdentifier(), Filename);
+
+                	DisplayGraph(sys::Path(Filename), true, GraphProgram::DOT);
+
+                    return false;
+                }
+        };
 }
 
 #endif //DEPGRAPH_H_
