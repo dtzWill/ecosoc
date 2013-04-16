@@ -1,7 +1,7 @@
 #ifndef DEPGRAPH_H_
 #define DEPGRAPH_H_
 
-#define USE_ALIAS_SETS false
+#define USE_ALIAS_SETS true
 
 #include "llvm/Pass.h"
 #include "llvm/Module.h"
@@ -12,6 +12,7 @@
 #include "llvm/Support/CFG.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/CallSite.h"
+#include "llvm/Support/GraphWriter.h"
 #include "llvm/Support/raw_ostream.h"
 #include "../AliasSets/AliasSets.h"
 #include <deque>
@@ -26,6 +27,8 @@
 using namespace std;
 
 namespace llvm {
+
+		typedef enum {etData = 0, etControl = 1} edgeType;
 
         /*
          * Class GraphNode
@@ -45,8 +48,8 @@ namespace llvm {
          */
         class GraphNode {
         private:
-                std::set<GraphNode*> successors;
-                std::set<GraphNode*> predecessors;
+                std::map<GraphNode*, edgeType> successors;
+                std::map<GraphNode*, edgeType> predecessors;
 
                 static int currentID;
                 int ID;
@@ -58,13 +61,13 @@ namespace llvm {
                 virtual ~GraphNode ();
 
                 static inline bool classof(const GraphNode *N) {return true;};
-                std::set<GraphNode*> getSuccessors();
+                std::map<GraphNode*, edgeType> getSuccessors();
                 bool hasSuccessor(GraphNode* succ);
 
-                std::set<GraphNode*> getPredecessors();
+                std::map<GraphNode*, edgeType> getPredecessors();
                 bool hasPredecessor(GraphNode* pred);
 
-                void connect(GraphNode* dst);
+                void connect(GraphNode* dst, edgeType type=etData);
                 int getClass_Id() const;
                 int getId() const;
                 std::string getName();
@@ -191,8 +194,12 @@ namespace llvm {
                         Graph(AliasSets *AS): AS(AS) {}; //Constructor
                         ~Graph (); //Destructor - Free adjacent matrix's memory
                         GraphNode* addInst (Value *v); //Add an instruction into Dependence Graph
-                        void addEdge (GraphNode* src, GraphNode* dst);
+
+                        void addEdge (GraphNode* src, GraphNode* dst, edgeType type=etData);
+
                         GraphNode* findNode(Value *op);  //Return the pointer to the node or NULL if it is not in the graph
+                        std::set<GraphNode*> findNodes(std::set<Value*> values);
+
                         OpNode* findOpNode(Value *op);  //Return the pointer to the node or NULL if it is not in the graph
 
                         //print graph in dot format
@@ -207,7 +214,15 @@ namespace llvm {
 
                         void deleteCallNodes(Function* F);
 
-                        void print();
+                        /*
+                         * Function getNearestDependence
+                         *
+                         * Given a sink, returns the nearest source in the graph and the distance to the nearest source
+                         */
+                        std::pair<GraphNode*, int> getNearestDependency(Value* sink, std::set<Value*> sources);
+
+
+
 
         };
 
@@ -249,6 +264,34 @@ namespace llvm {
                 Graph* depGraph;
         };
 
+        class ViewModuleDepGraph : public ModulePass {
+        public:
+                static char ID; // Pass identification, replacement for typeid.
+                ViewModuleDepGraph() : ModulePass(ID){}
+
+                void getAnalysisUsage(AnalysisUsage &AU) const{
+                	AU.addRequired<moduleDepGraph>();
+                	AU.setPreservesAll();
+                }
+
+                bool runOnModule(Module& M) {
+
+                	moduleDepGraph& DepGraph = getAnalysis<moduleDepGraph>();
+                	Graph *g = DepGraph.depGraph;
+
+                	std::string tmp = M.getModuleIdentifier();
+                	replace(tmp.begin(), tmp.end(), '\\', '_');
+
+                	std::string Filename = "/tmp/" + tmp + ".dot";
+
+                	//Print dependency graph (in dot format)
+                	g->toDot(M.getModuleIdentifier(), Filename);
+
+                	DisplayGraph(sys::Path(Filename), true, GraphProgram::DOT);
+
+                    return false;
+                }
+        };
 }
 
 #endif //DEPGRAPH_H_

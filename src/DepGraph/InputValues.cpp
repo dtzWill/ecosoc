@@ -7,13 +7,13 @@
 
 #define DEBUG_TYPE "InputDeps"
 
-#include "InputDeps.h"
+#include "InputValues.h"
 
 using namespace llvm;
 
-STATISTIC(InputDepValues, "Number of input-dependent values");
+STATISTIC(NumInputValues, "Number of input values");
 
-void llvm::InputDeps::getAnalysisUsage(AnalysisUsage& AU) const {
+void llvm::InputValues::getAnalysisUsage(AnalysisUsage& AU) const {
 
 	/*
 	 * We won't modify anything, so we shall tell this to LLVM
@@ -22,7 +22,7 @@ void llvm::InputDeps::getAnalysisUsage(AnalysisUsage& AU) const {
 	AU.setPreservesAll();
 }
 
-bool llvm::InputDeps::isMarkedCallInst(CallInst* CI) {
+bool llvm::InputValues::isMarkedCallInst(CallInst* CI) {
 
 	Function* F = CI->getCalledFunction();
 
@@ -36,12 +36,12 @@ bool llvm::InputDeps::isMarkedCallInst(CallInst* CI) {
 
 }
 
-void llvm::InputDeps::insertInInputDepValues(Value* V) {
-	if (!inputDepValues.count(V))
-		inputDepValues.insert(V);
+void llvm::InputValues::insertInInputDepValues(Value* V) {
+	if (!inputValues.count(V))
+		inputValues.insert(V);
 }
 
-bool llvm::InputDeps::runOnModule(Module& M) {
+bool llvm::InputValues::runOnModule(Module& M) {
 
 	module = &M;
 
@@ -81,13 +81,13 @@ bool llvm::InputDeps::runOnModule(Module& M) {
 
 	}
 
-	InputDepValues = inputDepValues.size();
+	NumInputValues = inputValues.size();
 
 	//We don't modify anything, so we must return false;
 	return false;
 }
 
-void llvm::InputDeps::initializeWhiteList() {
+void llvm::InputValues::initializeWhiteList() {
 
 	//output functions (stdio.h)
 	insertInWhiteList(module->getFunction("putc"));
@@ -131,7 +131,7 @@ void llvm::InputDeps::initializeWhiteList() {
 
 }
 
-void llvm::InputDeps::insertInWhiteList(Function* F) {
+void llvm::InputValues::insertInWhiteList(Function* F) {
 	if(F && whiteList.count(F) == 0){
 		whiteList.insert(F);
 	}
@@ -142,7 +142,7 @@ void llvm::InputDeps::insertInWhiteList(Function* F) {
  *
  * This method let us collect these arguments and mark them as input-dependent
  */
-void llvm::InputDeps::collectMainArguments() {
+void llvm::InputValues::collectMainArguments() {
 
     Function *main = module->getFunction("main");
 
@@ -152,7 +152,7 @@ void llvm::InputDeps::collectMainArguments() {
 
     if (main) {
 		for(Function::arg_iterator Arg = main->arg_begin(), aEnd = main->arg_end(); Arg != aEnd; Arg++) {
-			if (!inputDepValues.count(Arg)) inputDepValues.insert(Arg);
+			if (!inputValues.count(Arg)) inputValues.insert(Arg);
 		}
     }
 
@@ -165,16 +165,16 @@ void llvm::InputDeps::collectMainArguments() {
  * Thus, we only provide this public function, to allow the
  * client passes to consult if a value is input-dependent or not.
  */
-bool llvm::InputDeps::isInputDependent(Value* V) {
-	return inputDepValues.count(V);
+bool llvm::InputValues::isInputDependent(Value* V) {
+	return inputValues.count(V);
 }
 
-std::set<Value*> llvm::InputDeps::getInputDepValues() {
-	return inputDepValues;
+std::set<Value*> llvm::InputValues::getInputDepValues() {
+	return inputValues;
 }
 
 
-char InputDeps::ID = 0;
-static RegisterPass<InputDeps> Y("input-deps", "Track Input Dependencies");
+char InputValues::ID = 0;
+static RegisterPass<InputValues> Y("input-deps", "Track Input Dependencies");
 
 

@@ -5,8 +5,8 @@
  *      Author: raphael
  */
 
-#ifndef INPUTDEPS_H_
-#define INPUTDEPS_H_
+#ifndef INPUTVALUES_H_
+#define INPUTVALUES_H_
 
 #include "llvm/Pass.h"
 #include "llvm/Module.h"
@@ -24,12 +24,12 @@ using namespace std;
 namespace llvm {
 
 
-        class InputDeps : public ModulePass {
+        class InputValues : public ModulePass {
         private:
 			llvm::Module* module;
 
 			std::set<Function*> whiteList;
-			std::set<Value*> inputDepValues;
+			std::set<Value*> inputValues;
 
             void initializeWhiteList();
             void insertInWhiteList(Function* F);
@@ -40,7 +40,7 @@ namespace llvm {
             void collectMainArguments();
         public:
 			static char ID; // Pass identification, replacement for typeid.
-			InputDeps() : ModulePass(ID), module(NULL){}
+			InputValues() : ModulePass(ID), module(NULL){}
 
 			void getAnalysisUsage(AnalysisUsage &AU) const;
 			bool runOnModule(Module& M);
@@ -54,4 +54,4 @@ namespace llvm {
 
 
 
-#endif /* INPUTDEPS_H_ */
+#endif /* INPUTVALUES_H_ */
