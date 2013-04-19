@@ -89,7 +89,7 @@ bool AliasSets::runOnModule(Module &M) {
 	}
 	bool changed;
 	do {
-		errs() << "*\n";
+		//errs() << "*\n";
 		changed = analyzeSets();
 	} while (changed);
 

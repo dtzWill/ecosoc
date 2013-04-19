@@ -15,7 +15,7 @@
 #include "llvm/Metadata.h"
 #include "llvm/PassAnalysisSupport.h"
 #include "llvm/Function.h"
-#include "llvm/DepGraph.h"
+#include "DepGraph.h"
 #include "llvm/ADT/StringRef.h"
 #include "DepGraph.h"
 #include "InputValues.h"
