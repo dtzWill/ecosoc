@@ -7,12 +7,11 @@ VulArrays::VulArrays() :
 }
 
 /** This method expects to receive a node that is input-dependent and looks for paths
- * from it to arrays. Side-effect on inputDepArrays */
-bool VulArrays::searchForArray(Value* V) {
+ * from it to arrays. */
+void VulArrays::searchForArray(Value* V) {
 	std::set<GraphNode*> visitedNodes;
 	std::set<Value*> alias;
 	GraphNode* N = depGraph->findNode(V);
-	bool flag = false;
 	if (N != NULL) {
 		visitedNodes.clear();
 		depGraph->dfsVisit(N, visitedNodes);
@@ -26,9 +25,8 @@ bool VulArrays::searchForArray(Value* V) {
 					if (AllocaInst *AI = dyn_cast<AllocaInst>(*ai)) {
 						Type* Ty = AI->getAllocatedType();
 						if (Ty->isArrayTy()) {
-							pair<const std::set<Value*>::iterator, bool> check = inputDepArrays.insert(*ai);
-							flag = true;
-							if (check.second) ++NumVulArrays;
+							arrays.insert(*ai);
+							input[*ai].insert(V);
 						}
 					}
 				}
@@ -36,43 +34,44 @@ bool VulArrays::searchForArray(Value* V) {
 		}
 	} else {
 		//		DEBUG( errs() << "Value not found in depGraph: ";
-		//				errs() << *V << "\n";);
+		//				errs() << *V << "\n");
 	}
-	return flag;
+}
+
+void VulArrays::findVulLocals(const Value* V) {
+	const Instruction* inst = cast<Instruction> (V);
+	const BasicBlock* BB = inst->getParent();
+	for (BasicBlock::const_iterator I = BB->begin(), E = inst; I != E; ++I) { // While the array itself is not reached
+		if (const AllocaInst *AI = dyn_cast<AllocaInst>(I)) {
+			vulLocals[V].insert(AI);
+		}
+	}
 }
 
 bool VulArrays::runOnModule(Module &M) {
 	InputValues &IV = getAnalysis<InputValues> ();
 	moduleDepGraph &m = getAnalysis<moduleDepGraph> ();
 	depGraph = m.depGraph;
+	std::set<Value*> depArrays;
 	std::set<Value*> inputDepValues = IV.getInputDepValues();
 	for (std::set<Value*>::iterator i = inputDepValues.begin(), e =
 			inputDepValues.end(); i != e; ++i) {
-//				DEBUG(errs() << "inputDepValue: "<< **i << "\n";);
-		if (searchForArray(*i)) {
-			inputValues.insert(*i);
-		}
+		searchForArray(*i);
 	}
-	int count = 0;
-	bool first = true;
-	for (std::set<Value*>::iterator i = inputDepArrays.begin(), e =
-			inputDepArrays.end(); i != e; ++i) {
-//		errs() << "input dep array: " << **i << "\n";
-		Instruction* inst = cast<Instruction> (*i);
-		const BasicBlock* BB = inst->getParent();
-		for (BasicBlock::const_iterator I = BB->begin(), E = inst; I != E; ++I) {
-			if (const AllocaInst *AI = dyn_cast<AllocaInst>(I)) {
-				if (first) { // Is it first local value allocated after array that is found?
-					++count;
-					++NumVulArrays;
-					vulArrays[count] = *i;
-					first = false;
-				}
-				vulLocals[count].insert(AI);
-			}
-		}
-		first = true;
+	for (std::set<const Value*>::iterator i = arrays.begin(), e = arrays.end(); i
+			!= e; ++i) {
+		findVulLocals(*i);
 	}
+
+	for (std::set<const Value*>::iterator i = arrays.begin(), e = arrays.end(); i
+			!= e;) {
+		if (vulLocals[*i].size() == 0) {
+			input.erase(*i);
+			arrays.erase(i++);
+		}
+		else ++i;
+	}
+	NumVulArrays = arrays.size();
 	DEBUG(printArrays(););
 	return false;
 }
@@ -85,23 +84,23 @@ void VulArrays::getAnalysisUsage(AnalysisUsage &AU) const {
 
 void VulArrays::printArrays() {
 	errs() << "[VulArrays] Vulnerability-causing arrays:\n";
-	for (std::map<int, const Value*>::iterator i = vulArrays.begin(), e =
-			vulArrays.end(); i != e; ++i) {
-		errs() << "[VulArrays] ";
-		errs() << *(i->second) << "\n";
-		for (std::set<const Value*>::iterator ii = vulLocals[i->first].begin(), ee = vulLocals[i->first].end(); ii != ee; ++ii) {
-			errs() << "[VulArrays]\t\t" <<**ii << "\n";
+	for (std::set<const Value*>::iterator i = arrays.begin(), e = arrays.end(); i != e; ++i) {
+		const Function* F = cast<Instruction>(*i)->getParent()->getParent();
+		errs() << "[VulArrays] Value: " << **i << " from function " << F->getName() << "\n";
+		errs() << "[VulArrays] Inputs: \n";
+		for (std::set<const Value*>::iterator ii = input[*i].begin(), ee = input[*i].end(); ii != ee; ++ii) {
+			errs() << "[VulArrays] " << **ii << "\n";
 		}
+		errs() << "[VulArrays] Locals: \n";
+		for (std::set<const Value*>::iterator ii = vulLocals[*i].begin(), ee = vulLocals[*i].end(); ii != ee; ++ii) {
+			errs() << "[VulArrays] " << **ii << "\n";
+		}
+		errs() << "\n";
 	}
-	errs() << "[VulArrays] Input values:\n";
-	for (std::set<const Value*>::iterator i = inputValues.begin(), e = inputValues.end(); i != e; ++i) {
-		 errs() << "[VulArrays] " << **i << "\n" ;
-	}
-	errs() << "\n[VulArrays] *END*\n";
 }
 
-std::map<int, const Value*> VulArrays::getVulArrays() {
-	return vulArrays;
+std::set<const Value*> VulArrays::getVulArrays() {
+	return arrays;
 }
 
 char VulArrays::ID = 0;
