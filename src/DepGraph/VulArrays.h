@@ -27,19 +27,18 @@ using namespace llvm;
 class VulArrays : public ModulePass {
 	private:
 		bool runOnModule(Module &M);
-		bool searchForArray(Value* V);
+		void searchForArray(Value* V);
+		void findVulLocals(const Value* V);
 		Graph* depGraph;
-		std::set<Value*> inputDepArrays;
-		std::map<int, const Value*> vulArrays;
-		std::map<int, std::set<const Value*> > vulLocals;
-		std::set<const Value*> inputValues; // stores input values of interest (that cause vulnerab.)
+		std::set<const Value*> arrays;
+		std::map<const Value*, std::set<const Value*> > input;
+		std::map<const Value*, std::set<const Value*> > vulLocals;
 	public:
 		static char ID;
-//		Graph* depGraph;
 		void getAnalysisUsage(AnalysisUsage &AU) const;
 		VulArrays();
 		void printArrays();
-		std::map<int, const Value*> getVulArrays();
+		std::set<const Value*> getVulArrays();
 
 };
 
