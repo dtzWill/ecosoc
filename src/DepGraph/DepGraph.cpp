@@ -448,57 +448,60 @@ void Graph::addEdge(GraphNode* src, GraphNode* dst, edgeType type){
 
 //It verify if the instruction is valid for the dependence graph, i.e. just data manipulator instructions are important for dependence graph
 bool Graph::isValidInst(Value *v) {
+
+		if (v) return true;
+
         if (isa<Instruction>(v))
-                switch (cast<Instruction>(v)->getOpcode()) {
-                        //N operands instructions
-                        case Instruction::PHI:
-                        //3 operands instructions
-                        case Instruction::AtomicCmpXchg:
-                        case Instruction::AtomicRMW:
-                        //2 operands instructions
-                        case Instruction::Add:
-                        case Instruction::FAdd:
-                        case Instruction::Sub:
-                        case Instruction::FSub:
-                        case Instruction::Mul:
-                        case Instruction::FMul:
-                        case Instruction::FDiv:
-                        case Instruction::UDiv:
-                        case Instruction::SDiv:
-                        case Instruction::URem:
-                        case Instruction::SRem:
-                        case Instruction::FRem:
-                        case Instruction::Shl:
-                        case Instruction::LShr:
-                        case Instruction::AShr:
-                        case Instruction::And:
-                        case Instruction::Or:
-                        case Instruction::Xor:
-                        case Instruction::GetElementPtr:
-                        case Instruction::ExtractElement:
-                        case Instruction::ExtractValue:
-                        case Instruction::Select:
-                        case Instruction::ICmp:
-                        case Instruction::FCmp:
-                        //1 operand instruction
-                        case Instruction::Trunc:
-                        case Instruction::ZExt:
-                        case Instruction::SExt:
-                        case Instruction::Load:
-                        case Instruction::Store:
-                        case Instruction::Alloca:
-                        case Instruction::BitCast:
-                        case Instruction::PtrToInt:
-                        case Instruction::IntToPtr:
-                        case Instruction::FPToUI:
-                        case Instruction::FPToSI:
-                        case Instruction::SIToFP:
-                        case Instruction::UIToFP:
-                        case Instruction::Call:
+//                switch (cast<Instruction>(v)->getOpcode()) {
+//                        //N operands instructions
+//                        case Instruction::PHI:
+//                        //3 operands instructions
+//                        case Instruction::AtomicCmpXchg:
+//                        case Instruction::AtomicRMW:
+//                        //2 operands instructions
+//                        case Instruction::Add:
+//                        case Instruction::FAdd:
+//                        case Instruction::Sub:
+//                        case Instruction::FSub:
+//                        case Instruction::Mul:
+//                        case Instruction::FMul:
+//                        case Instruction::FDiv:
+//                        case Instruction::UDiv:
+//                        case Instruction::SDiv:
+//                        case Instruction::URem:
+//                        case Instruction::SRem:
+//                        case Instruction::FRem:
+//                        case Instruction::Shl:
+//                        case Instruction::LShr:
+//                        case Instruction::AShr:
+//                        case Instruction::And:
+//                        case Instruction::Or:
+//                        case Instruction::Xor:
+//                        case Instruction::GetElementPtr:
+//                        case Instruction::ExtractElement:
+//                        case Instruction::ExtractValue:
+//                        case Instruction::Select:
+//                        case Instruction::ICmp:
+//                        case Instruction::FCmp:
+//                        //1 operand instruction
+//                        case Instruction::Trunc:
+//                        case Instruction::ZExt:
+//                        case Instruction::SExt:
+//                        case Instruction::Load:
+//                        case Instruction::Store:
+//                        case Instruction::Alloca:
+//                        case Instruction::BitCast:
+//                        case Instruction::PtrToInt:
+//                        case Instruction::IntToPtr:
+//                        case Instruction::FPToUI:
+//                        case Instruction::FPToSI:
+//                        case Instruction::SIToFP:
+//                        case Instruction::UIToFP:
+//                        case Instruction::Call:
                                 return true;
-                        default:
-                                return false;
-                }
+//                        default:
+//                                return false;
+//                }
         else if (isa<Constant>(v) && !isa<Function>(v)) {
                         return true;
                 }
@@ -762,6 +765,13 @@ void moduleDepGraph::matchParametersAndReturnValues(Function &F) {
                 GraphNode* argNode = NULL;
                 argNode = depGraph->addInst(argptr);
 
+                if (!argNode) {
+
+                	errs() << "Fail to add the following value to the graph:" << *argptr << "\n";
+
+                	assert(0 && "Couldn't add return value to the graph!");
+                }
+
                 if (argNode != NULL)
                         depGraph->addEdge(argPHI, argNode);
 
@@ -820,12 +830,25 @@ void moduleDepGraph::matchParametersAndReturnValues(Function &F) {
 
 
 
-                for (i = 0, AI = CS.arg_begin(), EI = CS.arg_end(); AI != EI; ++i, ++AI)
+                for (i = 0, AI = CS.arg_begin(), EI = CS.arg_end(); AI != EI; ++i, ++AI) {
                         Parameters[i].second = depGraph->addInst(*AI);
+
+                        if (!Parameters[i].second) {
+
+                        	errs() << "Fail to add the following value to the graph:" << **AI << "\n";
+
+                        	assert(0 && "Couldn't add value to the graph!");
+                        }
+
+
+                }
 
 
                 // Match formal and real parameters
                 for (i = 0; i < Parameters.size(); ++i) {
+
+
+
                         depGraph->addEdge(Parameters[i].second, Parameters[i].first);
                 }
 
@@ -834,11 +857,25 @@ void moduleDepGraph::matchParametersAndReturnValues(Function &F) {
 
                         OpNode* retPHI = new OpNode(Instruction::PHI);
                         GraphNode* callerNode = depGraph->addInst(caller);
+                        if (!callerNode) {
+
+                        	errs() << "Fail to add the following value to the graph:" << *caller << "\n";
+
+                        	assert(0 && "Couldn't add return value to the graph!");
+                        }
                         depGraph->addEdge(retPHI, callerNode);
 
                         for (SmallPtrSetIterator<llvm::Value*> ri = ReturnValues.begin(), re =
                                         ReturnValues.end(); ri != re; ++ri) {
                                 GraphNode* retNode = depGraph->addInst(*ri);
+
+                                if (!retNode) {
+
+                                	errs() << "Fail to add the following value to the graph:" << **ri << "\n";
+
+                                	assert(0 && "Couldn't add return value to the graph!");
+                                }
+
                                 depGraph->addEdge(retNode, retPHI);
                         }
 
