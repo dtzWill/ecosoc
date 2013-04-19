@@ -393,17 +393,19 @@ GraphNode* Graph::addInst (Value *v)  {
                         if (Var == NULL) {
 
                                 if ( CI ) {
-                                    //errs() << CI->getCalledFunction() << " - " << *CI << "\n";
-
                                     hasVarNode = !CI->getType()->isVoidTy();
-
-                                	//hasVarNode = !CI->getCalledFunction()->getReturnType()->isVoidTy();
                                 }
 
                                 if (hasVarNode) {
                                         if (StoreInst* SI = dyn_cast<StoreInst>(v)) Var = addInst(SI->getOperand(1));  // We do this here because we want to represent the store instructions as a flow of information of a data to a memory node
-                                        else if ( (!isa<Constant>(v)) && isMemoryPointer(v)) Var = new MemNode(USE_ALIAS_SETS ? AS->getValueSetKey(v) : 0, AS);
-                                        else Var = new VarNode(v);
+                                        else if ( (!isa<Constant>(v)) && isMemoryPointer(v)) {
+                                        	Var = new MemNode(USE_ALIAS_SETS ? AS->getValueSetKey(v) : 0, AS);
+                                        	memNodes[USE_ALIAS_SETS ? AS->getValueSetKey(v) : 0] = Var;
+                                        }
+                                        else {
+                                        	Var = new VarNode(v);
+                                        	varNodes[v] = Var;
+                                        }
                                         nodes.insert(Var);
                                 }
 
@@ -413,8 +415,10 @@ GraphNode* Graph::addInst (Value *v)  {
 
                                 if( CI ) {
                                         Op = new CallNode(CI);
+                                        callNodes[CI] = Op;
                                 } else {
                                         Op = new OpNode(dyn_cast<Instruction>(v)->getOpcode(), v);
+                                        opNodes[v] = Op;
                                 }
                                 nodes.insert(Op);
                                 if (hasVarNode) Op->connect(Var);
@@ -448,6 +452,13 @@ void Graph::addEdge(GraphNode* src, GraphNode* dst, edgeType type){
 
 //It verify if the instruction is valid for the dependence graph, i.e. just data manipulator instructions are important for dependence graph
 bool Graph::isValidInst(Value *v) {
+
+		/*
+		 * FIXME: Instead of choosing the instructions that we want to include in the graph,
+		 * it is better to choose the instructions that we don't want in the graph.
+		 *
+		 * As a quick fix, I've changed the program to mark any value as a valid value
+		 */
 
 		if (v) return true;
 
@@ -523,17 +534,10 @@ bool llvm::Graph::isMemoryPointer(llvm::Value* v) {
 GraphNode* Graph::findNode (Value *op){
 
         if ((!isa<Constant>(op)) && isMemoryPointer(op)) {
-                for (std::set<GraphNode*>::iterator i = nodes.begin(), vend = nodes.end(); i != vend; ++i) {
-                        if (isa<MemNode>(*i) && dyn_cast<MemNode>(*i)->getAliasSetId() == (USE_ALIAS_SETS ? AS->getValueSetKey(op) : 0) ){
-                                return dyn_cast<MemNode>(*i);
-                        }
-                }
+        		int index = USE_ALIAS_SETS ? AS->getValueSetKey(op) : 0;
+                if(memNodes.count(index)) return memNodes[index];
         } else {
-                for (std::set<GraphNode*>::iterator i = nodes.begin(), vend = nodes.end(); i != vend; ++i) {
-                        if (isa<VarNode>(*i) && dyn_cast<VarNode>(*i)->getValue() == op ){
-                                return dyn_cast<VarNode>(*i);
-                        }
-                }
+        		if(varNodes.count(op)) return varNodes[op];
         }
 
         return NULL;
@@ -559,27 +563,35 @@ std::set<GraphNode*> Graph::findNodes(std::set<Value*> values){
 
 OpNode* llvm::Graph::findOpNode(llvm::Value* op) {
 
-        for (std::set<GraphNode*>::iterator i = nodes.begin(), vend = nodes.end(); i != vend; ++i) {
-                if (isa<OpNode>(*i) && dyn_cast<OpNode>(*i)->getValue() == op ){
-                        return dyn_cast<OpNode>(*i);
-                }
-        }
-
-        return NULL;
+	if(opNodes.count(op)) return dyn_cast<OpNode>(opNodes[op]);
+    return NULL;
 }
 
 
 void llvm::Graph::deleteCallNodes(Function* F) {
 
-        for (std::set<GraphNode*>::iterator node = nodes.begin(), end = nodes.end(); node != end; node++){
+	for (Value::use_iterator UI = F->use_begin(), E = F->use_end(); UI != E;
+			++UI) {
+		User *U = *UI;
 
-                if (CallNode* CN = dyn_cast<CallNode>(*node)) {
-                        if (CN->getCalledFunction() == F) {
-                                nodes.erase(node);
-                                delete CN;
-                        }
-                }
-        }
+		// Ignore blockaddress uses
+		if (isa<BlockAddress>(U))
+			continue;
+
+		// Used by a non-instruction, or not the callee of a function, do not
+		// match.
+		if (!isa<CallInst>(U) && !isa<InvokeInst>(U))
+			continue;
+
+		Instruction *caller = cast<Instruction>(U);
+
+		if (GraphNode* node = callNodes[caller]) {
+			nodes.erase(node);
+			delete node;
+		}
+
+	}
+
 }
 
 
@@ -765,13 +777,6 @@ void moduleDepGraph::matchParametersAndReturnValues(Function &F) {
                 GraphNode* argNode = NULL;
                 argNode = depGraph->addInst(argptr);
 
-                if (!argNode) {
-
-                	errs() << "Fail to add the following value to the graph:" << *argptr << "\n";
-
-                	assert(0 && "Couldn't add return value to the graph!");
-                }
-
                 if (argNode != NULL)
                         depGraph->addEdge(argPHI, argNode);
 
@@ -832,15 +837,6 @@ void moduleDepGraph::matchParametersAndReturnValues(Function &F) {
 
                 for (i = 0, AI = CS.arg_begin(), EI = CS.arg_end(); AI != EI; ++i, ++AI) {
                         Parameters[i].second = depGraph->addInst(*AI);
-
-                        if (!Parameters[i].second) {
-
-                        	errs() << "Fail to add the following value to the graph:" << **AI << "\n";
-
-                        	assert(0 && "Couldn't add value to the graph!");
-                        }
-
-
                 }
 
 
@@ -857,25 +853,11 @@ void moduleDepGraph::matchParametersAndReturnValues(Function &F) {
 
                         OpNode* retPHI = new OpNode(Instruction::PHI);
                         GraphNode* callerNode = depGraph->addInst(caller);
-                        if (!callerNode) {
-
-                        	errs() << "Fail to add the following value to the graph:" << *caller << "\n";
-
-                        	assert(0 && "Couldn't add return value to the graph!");
-                        }
                         depGraph->addEdge(retPHI, callerNode);
 
                         for (SmallPtrSetIterator<llvm::Value*> ri = ReturnValues.begin(), re =
                                         ReturnValues.end(); ri != re; ++ri) {
                                 GraphNode* retNode = depGraph->addInst(*ri);
-
-                                if (!retNode) {
-
-                                	errs() << "Fail to add the following value to the graph:" << **ri << "\n";
-
-                                	assert(0 && "Couldn't add return value to the graph!");
-                                }
-
                                 depGraph->addEdge(retNode, retPHI);
                         }
 
