@@ -6,6 +6,7 @@
 #include "llvm/Pass.h"
 #include "llvm/Module.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/Analysis/Dominators.h"
 #include "llvm/Analysis/DominanceFrontier.h"
 #include "llvm/ADT/DenseMap.h"
@@ -182,6 +183,14 @@ namespace llvm {
         //Dependence Graph
         class Graph {
                 private:
+
+        				llvm::DenseMap<Value*,GraphNode*> opNodes;
+        				llvm::DenseMap<Value*,GraphNode*> callNodes;
+
+        				llvm::DenseMap<Value*,GraphNode*> varNodes;
+        				llvm::DenseMap<int,GraphNode*> memNodes;
+
+
 
                         std::set<GraphNode*> nodes;
 
