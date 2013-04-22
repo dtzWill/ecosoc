@@ -17,7 +17,7 @@ using namespace llvm;
 //
 //*********************************************************************************************************************************************************************
 
-
+//FIXME: Deal properly with invoke instructions. An Invoke instruction can be treated as a call node
 
 /*
  * Class GraphNode
@@ -580,14 +580,19 @@ void llvm::Graph::deleteCallNodes(Function* F) {
 
 		// Used by a non-instruction, or not the callee of a function, do not
 		// match.
-		if (!isa<CallInst>(U) && !isa<InvokeInst>(U))
+
+		//FIXME: Deal properly with invoke instructions
+		if (!isa<CallInst>(U))
 			continue;
 
 		Instruction *caller = cast<Instruction>(U);
 
-		if (GraphNode* node = callNodes[caller]) {
-			nodes.erase(node);
-			delete node;
+		if (callNodes.count(caller)) {
+			if (GraphNode* node = callNodes[caller]) {
+				nodes.erase(node);
+				delete node;
+			}
+			callNodes.erase(caller);
 		}
 
 	}
@@ -595,7 +600,7 @@ void llvm::Graph::deleteCallNodes(Function* F) {
 }
 
 
-std::pair<GraphNode*, int> llvm::Graph::getNearestDependency(llvm::Value* sink, std::set<llvm::Value*> sources) {
+std::pair<GraphNode*, int> llvm::Graph::getNearestDependency(llvm::Value* sink, std::set<llvm::Value*> sources, bool skipMemoryNodes) {
 
 	std::pair<llvm::GraphNode*, int> result;
 	result.first = NULL;
@@ -611,7 +616,11 @@ std::pair<GraphNode*, int> llvm::Graph::getNearestDependency(llvm::Value* sink, 
 		std::list<std::pair<GraphNode*, int> > workList;
 
 		for(std::set<GraphNode*>::iterator Nit = nodes.begin(), Nend = nodes.end(); Nit != Nend; Nit++){
-			nodeColor[*Nit] = 0;
+
+			if (skipMemoryNodes && isa<MemNode>(*Nit))
+				nodeColor[*Nit] = 1;
+			else
+				nodeColor[*Nit] = 0;
 		}
 
 		workList.push_back(pair<GraphNode*, int> (startNode,0));
@@ -630,7 +639,6 @@ std::pair<GraphNode*, int> llvm::Graph::getNearestDependency(llvm::Value* sink, 
 			nodeColor[workNode] = 1;
 
 			workList.pop_front();
-
 
 
 			if (sourceNodes.count(workNode)) {
@@ -785,6 +793,7 @@ void moduleDepGraph::matchParametersAndReturnValues(Function &F) {
                 Parameters[i].first = argPHI;
         }
 
+
         // Check if the function returns a supported value type. If not, no return value matching is done
         bool noReturn = F.getReturnType()->isVoidTy();
 
@@ -808,7 +817,6 @@ void moduleDepGraph::matchParametersAndReturnValues(Function &F) {
                         ReturnValues.insert(RI->getReturnValue());
                 }
         }
-
 
         for (Value::use_iterator UI = F.use_begin(), E = F.use_end(); UI != E;
                         ++UI) {

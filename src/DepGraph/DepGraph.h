@@ -228,7 +228,7 @@ namespace llvm {
                          *
                          * Given a sink, returns the nearest source in the graph and the distance to the nearest source
                          */
-                        std::pair<GraphNode*, int> getNearestDependency(Value* sink, std::set<Value*> sources);
+                        std::pair<GraphNode*, int> getNearestDependency(Value* sink, std::set<Value*> sources, bool skipMemoryNodes);
 
 
 
