@@ -678,7 +678,8 @@ std::pair<GraphNode*, int> llvm::Graph::getNearestDependency(llvm::Value* sink, 
 
 //Class functionDepGraph
 void functionDepGraph::getAnalysisUsage(AnalysisUsage &AU) const {
-        AU.addRequired<AliasSets>();
+    if (USE_ALIAS_SETS)
+    	AU.addRequired<AliasSets>();
 
         AU.setPreservesAll();
 }
@@ -711,9 +712,10 @@ static RegisterPass<functionDepGraph> X("functionDepGraph", "Function Dependence
 
 //Class moduleDepGraph
 void moduleDepGraph::getAnalysisUsage(AnalysisUsage &AU) const {
-        AU.addRequired<AliasSets>();
+    if (USE_ALIAS_SETS)
+    	AU.addRequired<AliasSets>();
 
-        AU.setPreservesAll();
+    AU.setPreservesAll();
 }
 
 bool moduleDepGraph::runOnModule(Module &M) {

@@ -1,7 +1,7 @@
 #ifndef DEPGRAPH_H_
 #define DEPGRAPH_H_
 
-#define USE_ALIAS_SETS true
+#define USE_ALIAS_SETS false
 
 #include "llvm/Pass.h"
 #include "llvm/Module.h"
