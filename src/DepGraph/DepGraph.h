@@ -1,6 +1,8 @@
 #ifndef DEPGRAPH_H_
 #define DEPGRAPH_H_
 
+#define DEBUG_TYPE "depgraph"
+
 #define USE_ALIAS_SETS false
 
 #include "llvm/Pass.h"
@@ -28,6 +30,11 @@
 using namespace std;
 
 namespace llvm {
+
+		STATISTIC(NrOpNodes, "Number of operation nodes");
+		STATISTIC(NrVarNodes, "Number of variable nodes");
+		STATISTIC(NrMemNodes, "Number of memory nodes");
+		STATISTIC(NrEdges, "Number of edges");
 
 		typedef enum {etData = 0, etControl = 1} edgeType;
 
@@ -91,8 +98,9 @@ namespace llvm {
                 unsigned int OpCode;
                 Value* value;
         public:
-                OpNode(int OpCode): GraphNode(), OpCode(OpCode), value(NULL) {this->Class_ID = 1;};
-                OpNode(int OpCode, Value* v): GraphNode(), OpCode(OpCode), value(v) {this->Class_ID = 1;};
+                OpNode(int OpCode): GraphNode(), OpCode(OpCode), value(NULL) {this->Class_ID = 1; NrOpNodes++;};
+                OpNode(int OpCode, Value* v): GraphNode(), OpCode(OpCode), value(v) {this->Class_ID = 1; NrOpNodes++;};
+                ~OpNode() {NrOpNodes--;};
                 static inline bool classof(const GraphNode *N) {return N->getClass_Id()==1 || N->getClass_Id()==3;};
                 unsigned int getOpCode() const;
                 void setOpCode(unsigned int opCode);
@@ -134,7 +142,8 @@ namespace llvm {
         private:
                 Value* value;
         public:
-                VarNode(Value* value): GraphNode(), value(value) {this->Class_ID = 2;};
+                VarNode(Value* value): GraphNode(), value(value) {this->Class_ID = 2; NrVarNodes++;};
+                ~VarNode(){ NrVarNodes--;}
                 static inline bool classof(const GraphNode *N) {return N->getClass_Id()==2;};
                 Value* getValue();
 
@@ -157,7 +166,8 @@ namespace llvm {
                 int aliasSetID;
                 AliasSets *AS;
         public:
-                MemNode(int aliasSetID, AliasSets *AS): aliasSetID(aliasSetID), AS(AS) {this->Class_ID = 4;};
+                MemNode(int aliasSetID, AliasSets *AS): aliasSetID(aliasSetID), AS(AS) {this->Class_ID = 4; NrMemNodes++;};
+                ~MemNode() {NrMemNodes--;};
                 static inline bool classof(const GraphNode *N) {return N->getClass_Id()==4;};
                 std::set<Value*> getAliases();
 

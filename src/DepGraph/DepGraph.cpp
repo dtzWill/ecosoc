@@ -1,8 +1,9 @@
-#define DEBUG_TYPE "depgraph"
+
 
 #include "DepGraph.h"
 
 using namespace llvm;
+
 
 //*********************************************************************************************************************************************************************
 //                                                                                                                              DEPENDENCE GRAPH API
@@ -32,10 +33,12 @@ GraphNode::~GraphNode (){
 
         for( std::map<GraphNode*, edgeType>::iterator pred = predecessors.begin(); pred != predecessors.end(); pred++ ) {
         	(*pred).first->successors.erase(this);
+        	NrEdges--;
         }
 
         for( std::map<GraphNode*, edgeType>::iterator succ = successors.begin(); succ != successors.end(); succ++ ) {
         	(*succ).first->predecessors.erase(this);
+        	NrEdges--;
         }
 
         successors.clear();
@@ -51,8 +54,13 @@ std::map<GraphNode*, edgeType> llvm::GraphNode::getPredecessors() {
 }
 
 void llvm::GraphNode::connect(GraphNode* dst, edgeType type){
-        this->successors[dst] = type;
-        dst->predecessors[this] = type;
+
+	unsigned int curSize = this->successors.size();
+	this->successors[dst] = type;
+	dst->predecessors[this] = type;
+
+    if (this->successors.size() != curSize) //Only count new edges
+        NrEdges++;
 }
 
 int llvm::GraphNode::getClass_Id() const {
