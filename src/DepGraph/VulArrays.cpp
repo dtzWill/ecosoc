@@ -1,4 +1,3 @@
-#define DEBUG_TYPE "VulArrays"
 #include "VulArrays.h"
 STATISTIC(NumVulArrays, "The number of vulnerability-causing arrays");
 
