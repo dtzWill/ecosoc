@@ -1,9 +1,11 @@
 #ifndef DEPGRAPH_H_
 #define DEPGRAPH_H_
 
+#ifndef DEBUG_TYPE
 #define DEBUG_TYPE "depgraph"
+#endif
 
-#define USE_ALIAS_SETS false
+#define USE_ALIAS_SETS true
 
 #include "llvm/Pass.h"
 #include "llvm/Module.h"
@@ -210,7 +212,7 @@ namespace llvm {
                         bool isMemoryPointer(Value *v); //Return true if the value is a memory pointer
 
                 public:
-                        Graph(AliasSets *AS): AS(AS) {}; //Constructor
+                        Graph(AliasSets *AS): AS(AS) { NrEdges = 0;}; //Constructor
                         ~Graph (); //Destructor - Free adjacent matrix's memory
                         GraphNode* addInst (Value *v); //Add an instruction into Dependence Graph
 

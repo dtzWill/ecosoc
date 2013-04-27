@@ -426,8 +426,9 @@ GraphNode* Graph::addInst (Value *v)  {
                                         callNodes[CI] = Op;
                                 } else {
                                         Op = new OpNode(dyn_cast<Instruction>(v)->getOpcode(), v);
-                                        opNodes[v] = Op;
                                 }
+                                opNodes[v] = Op;
+
                                 nodes.insert(Op);
                                 if (hasVarNode) Op->connect(Var);
 
