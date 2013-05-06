@@ -75,7 +75,7 @@ bool PADriver::runOnModule(Module &M) {
         }
 
         // Run the analysis
-        pointerAnalysis->solve();
+        pointerAnalysis->solve(false);
         double vmUsage, residentSet;
         process_mem_usage(vmUsage, residentSet);
         PAMemUsage = vmUsage;

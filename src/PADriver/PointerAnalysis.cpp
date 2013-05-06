@@ -451,6 +451,9 @@ void PointerAnalysis::solve(bool withCycleRemoval)
     if (debug) std::cerr << "Starting the analysis" << std::endl;
 
     while (!WorkSet.empty()) {
+
+    	if (debug)  std::cerr << "WorkSet.size: " << WorkSet.size() << "\n";
+
         int Node = *WorkSet.begin();
         Node = vertices[Node];
         WorkSet.erase(WorkSet.begin());
@@ -504,11 +507,9 @@ void PointerAnalysis::solve(bool withCycleRemoval)
 
         if (debug) std::cerr << " - End step" << std::endl;
         // For Node->Z in Graph
-        IntSet::iterator Z = from[Node].begin();
-        while (Z != from[Node].end() ) 
+
+        for  (IntSet::iterator Z = from[Node].begin(); Z != from[Node].end(); Z++ )
 		{
-            IntSet::iterator NextZ = Z;
-            NextZ++;
             int ZVal = *Z;
 			int repN = vertices[Node];
 			int repZ = vertices[ZVal];
@@ -556,8 +557,6 @@ void PointerAnalysis::solve(bool withCycleRemoval)
 			{
                 NewWorkSet.insert(ZVal);
             }
-
-            Z = NextZ;
 
             if (debug) std::cerr << " - End of step" << std::endl;
         }
