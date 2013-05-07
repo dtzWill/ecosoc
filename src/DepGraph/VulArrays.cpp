@@ -83,44 +83,41 @@ bool VulArrays::runOnFunction(Function &F) {
 				if (PointerType* PO = dyn_cast<PointerType>(GEP->getType())) {
 					if (PO->getElementType()->isArrayTy()) {
 						if (isValueInpDep(GEP, inputDepValues)) {
+							bool IsStruct = false;
 							while (isa<GetElementPtrInst> (
-									GEP->getPointerOperand()))
+									GEP->getPointerOperand())) {
+								IsStruct
+										= IsStruct
+												|| cast<PointerType> (
+														GEP->getPointerOperandType())->getElementType()->isStructTy();
 								GEP = cast<GetElementPtrInst> (
 										GEP->getPointerOperand());
-							if (PointerType *PT = dyn_cast<PointerType>(GEP->getType()))
-								if (PT->getElementType()->isStructTy())
-									depStructs1.insert(GEP);
+							}
+							if (IsStruct) {
+								if (AllocaInst *AI = dyn_cast<AllocaInst>(GEP)) {
+									depStructs1.insert(AI);
+								}
+							}
 						}
-						//							while (true) {
-						//								if (PointerType* P = dyn_cast<PointerType>(GEP->getPointerOperandType())) {
-						//									if (P->getElementType()->isStructTy()) {
-						//										//										errs() << "found\n";
-						//										depStructs1.insert(
-						//												GEP->getPointerOperand());
-						//									}
-						//									break;
-						//								} else if (GetElementPtrInst* gep = dyn_cast<GetElementPtrInst>(GEP->getPointerOperand())) {
-						//									GEP = gep;
-						//								}
-						//							}
 					}
 				}
+				//			} else if (BitCastInst* BC = dyn_cast<BitCastInst>(I)) {
+				//				errs() << *BC << "\n";
+				//				if (PointerType* PO = dyn_cast<PointerType>(BC->getSrcTy())) {
+				//					if (StructType* ST = dyn_cast<StructType>(PO->getElementType())) {
+				//						if (structHasArray(ST)) {
+				//							if (isValueInpDep(BC->getOperand(0), inputDepValues)) {
+				//								//                                               errs() << "found bitcast\n";
+				//								depStructs2.insert(BC);
+				//							}
+				//						}
+				//					}
+				//				}
+				//			}
 			}
-			//			} else if (BitCastInst* BC = dyn_cast<BitCastInst>(I)) {
-			//				//				errs() << *BC <<"\n";
-			//				if (PointerType* PO = dyn_cast<PointerType>(BC->getSrcTy())) {
-			//					if (StructType* ST = dyn_cast<StructType>(PO->getElementType())) {
-			//						if (structHasArray(ST)) {
-			//							if (isValueInpDep(BC->getOperand(0), inputDepValues)) {
-			//								//						 errs() << "found bitcast\n";
-			//								depStructs2.insert(BC);
-			//							}
-			//						}
-			//					}
-			//				}
-
 		}
 	}
+
 	if (arrays.size() > 1) {
 		for (std::set<AllocaInst*>::iterator i = arrays.begin(), e =
 				arrays.end(); i != e; ++i) {
