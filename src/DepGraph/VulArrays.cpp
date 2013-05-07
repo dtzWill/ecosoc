@@ -1,13 +1,23 @@
 #include "VulArrays.h"
-STATISTIC(NumVulArrays, "The number of vulnerability-causing arrays");
+//STATISTIC(NumVulArrays, "The number of vulnerability-causing arrays");
 
 VulArrays::VulArrays() :
-	ModulePass(ID) {
+	FunctionPass(ID) {
 }
 
-/** This method expects to receive a node that is input-dependent and looks for paths
- * from it to arrays. */
-void VulArrays::searchForArray(Value* V) {
+bool VulArrays::structHasArray(StructType* ST) {
+	for (StructType::element_iterator stb = ST->element_begin(), ste =
+			ST->element_end(); stb != ste; ++stb) {
+		if (isa<ArrayType> (*stb)) {
+			return true;
+		}
+	}
+	return false;
+}
+
+//@AI: array allocation instruction
+bool VulArrays::isValueInpDep(Value* V, std::set<Value*> inputDepValues) {
+	//Firstly, check if array or alias is passed as parameter to "any" lib function
 	std::set<GraphNode*> visitedNodes;
 	std::set<Value*> alias;
 	GraphNode* N = depGraph->findNode(V);
@@ -18,91 +28,102 @@ void VulArrays::searchForArray(Value* V) {
 			alias = M->getAliases();
 			for (std::set<Value*>::iterator ai = alias.begin(), aend =
 					alias.end(); ai != aend; ++ai) {
-				if (AllocaInst *AI = dyn_cast<AllocaInst>(*ai)) {
-					Type* Ty = AI->getAllocatedType();
-					if (Ty->isArrayTy()) {
-						arrays.insert(*ai);
-						input[*ai].insert(V);
-					}
+				if (inputDepValues.count(*ai)) {
+					return true;
 				}
 			}
 		}
 	}
-}
-
-void VulArrays::findVulLocals(const Value* V) {
-	const Instruction* inst = cast<Instruction> (V);
-	const BasicBlock* BB = inst->getParent();
-	for (BasicBlock::const_iterator I = BB->begin(), E = inst; I != E; ++I) { // While the array itself is not reached
-		if (const AllocaInst *AI = dyn_cast<AllocaInst>(I)) {
-			vulLocals[V].insert(AI);
+	//Secondly, check store operations targeting the array
+	std::map<GraphNode*, edgeType> pred = N->getPredecessors();
+	for (std::map<GraphNode*, edgeType>::iterator i = pred.begin(), endi =
+			pred.end(); i != endi; ++i) {
+		GraphNode* n = i->first;
+		if (OpNode* ON = dyn_cast<OpNode> (n)) {
+			if (ON->getOpCode() == Instruction::Store) {
+				std::pair<GraphNode*, int> dep =
+						depGraph->getNearestDependency(ON->getValue(),
+								inputDepValues, false);
+				if (dep.first != NULL) {
+					return true;
+				}
+			}
 		}
 	}
+	return false;
 }
 
-bool VulArrays::runOnModule(Module &M) {
+bool VulArrays::structHasArray(const StructType* ST) {
+	for (StructType::element_iterator I = ST->element_begin(), E =
+			ST->element_end(); I != E; ++I) {
+		if ((*I)->isArrayTy()) {
+			return true;
+		} else if (const StructType* st = dyn_cast<StructType>(*I)) {
+			return structHasArray(st);
+		}
+	}
+	return false;
+}
+
+bool VulArrays::runOnFunction(Function &F) {
 	InputValues &IV = getAnalysis<InputValues> ();
 	moduleDepGraph &m = getAnalysis<moduleDepGraph> ();
 	depGraph = m.depGraph;
-	std::set<Value*> depArrays;
 	std::set<Value*> inputDepValues = IV.getInputDepValues();
-	//	Look for arrays passed as parameters
-	for (std::set<Value*>::iterator i = inputDepValues.begin(), e =
-			inputDepValues.end(); i != e; ++i) {
-		searchForArray(*i);
-	}
-	//Look for arrays that are assigned to directly
-	for (Module::iterator F = M.begin(), endM = M.end(); F != endM; ++F) {
-		for (Function::iterator BB = F->begin(), endBB = F->end(); BB != endBB; ++BB) {
-			for (BasicBlock::iterator I = BB->begin(), endI = BB->end(); I
-					!= endI; ++I) {
-				if (AllocaInst* AI = dyn_cast<AllocaInst>(I)) {
-					Type* Ty = AI->getAllocatedType();
-					if (Ty->isArrayTy()) {
-						GraphNode* N = depGraph->findNode(cast<Value> (I));
-						std::map<GraphNode*, edgeType> pred =
-								N->getPredecessors();
-						for (std::map<GraphNode*, edgeType>::iterator i =
-								pred.begin(), endi = pred.end(); i != endi; ++i) {
-							GraphNode* n = i->first;
-							if (OpNode* ON = dyn_cast<OpNode> (n)) {
-								if (ON->getOpCode() == Instruction::Store) {
-									std::pair<GraphNode*, int> dep =
-											depGraph->getNearestDependency(
-													ON->getValue(),
-													inputDepValues, false);
-									if (dep.first != NULL) {
-										arrays.insert(AI);
-										if (VarNode* VN = dyn_cast<VarNode>(dep.first)) {
-											input[AI].insert(VN->getValue());
-										}
-//										else if (MemNode* MN = dyn_cast<MemNode>(dep.first)) {
-											//Put all the alias set? Might be of no use at all
-//										}
+	std::set<AllocaInst*> arrays;
+	for (Function::iterator BB = F.begin(), endBB = F.end(); BB != endBB; ++BB) {
+		for (BasicBlock::iterator I = BB->begin(), endI = BB->end(); I != endI; ++I) {
+			if (AllocaInst* AI = dyn_cast<AllocaInst>(I)) {
+				Type* Ty = AI->getAllocatedType();
+				if (Ty->isArrayTy()) {
+					arrays.insert(AI);
+				}
+			} else if (GetElementPtrInst* GEP = dyn_cast<GetElementPtrInst>(I)) {
+				//				errs() << *GEP << "\n";
+				if (isValueInpDep(GEP, inputDepValues)) {
+					if (PointerType* PO = dyn_cast<PointerType>(GEP->getType())) {
+						if (PO->getElementType()->isArrayTy()) {//até aqui tem quer ter sempre
+							while (true) {
+								if (PointerType* P = dyn_cast<PointerType>(GEP->getPointerOperandType())) {
+									if (P->getElementType()->isStructTy()) {
+										//										errs() << "found\n";
+										depStructs1.insert(
+												GEP->getPointerOperand());
+										break;
 									}
+								} else if (GetElementPtrInst* gep = dyn_cast<GetElementPtrInst>(GEP->getPointerOperand())) {
+									GEP = gep;
+								} else {
+									break;
 								}
 							}
 						}
 					}
 				}
+				//			} else if (BitCastInst* BC = dyn_cast<BitCastInst>(I)) {
+				//				//				errs() << *BC <<"\n";
+				//				if (PointerType* PO = dyn_cast<PointerType>(BC->getSrcTy())) {
+				//					if (StructType* ST = dyn_cast<StructType>(PO->getElementType())) {
+				//						if (structHasArray(ST)) {
+				//							if (isValueInpDep(BC->getOperand(0), inputDepValues)) {
+				//								//						 errs() << "found bitcast\n";
+				//								depStructs2.insert(BC);
+				//							}
+				//						}
+				//					}
+				//				}
 			}
 		}
 	}
-	for (std::set<const Value*>::iterator i = arrays.begin(), e = arrays.end(); i
-			!= e; ++i) {
-		findVulLocals(*i);
+	if (arrays.size() > 1) {
+		for (std::set<AllocaInst*>::iterator i = arrays.begin(), e =
+				arrays.end(); i != e; ++i) {
+			if (isValueInpDep(cast<Value> (*i), inputDepValues)) {
+				depArrays.insert(*i);
+			}
+		}
 	}
-
-	for (std::set<const Value*>::iterator i = arrays.begin(), e = arrays.end(); i
-			!= e;) {
-		if (vulLocals[*i].size() == 0) {
-			input.erase(*i);
-			arrays.erase(i++);
-		} else
-			++i;
-	}
-	NumVulArrays = arrays.size();
-	printArrays();
+//	printArrays(F);
 	return false;
 }
 
@@ -112,29 +133,30 @@ void VulArrays::getAnalysisUsage(AnalysisUsage &AU) const {
 	AU.addRequired<InputValues> ();
 }
 
-void VulArrays::printArrays() {
-	errs() << "[VulArrays] Vulnerability-causing arrays:\n";
-	for (std::set<const Value*>::iterator i = arrays.begin(), e = arrays.end(); i
-			!= e; ++i) {
-		const Function* F = cast<Instruction> (*i)->getParent()->getParent();
-		errs() << "[VulArrays] Value: " << **i << " from function "
-				<< F->getName() << "\n";
-		errs() << "[VulArrays] Inputs: \n";
-		for (std::set<const Value*>::iterator ii = input[*i].begin(), ee =
-				input[*i].end(); ii != ee; ++ii) {
-			errs() << "[VulArrays] " << **ii << "\n";
-		}
-		errs() << "[VulArrays] Locals: \n";
-		for (std::set<const Value*>::iterator ii = vulLocals[*i].begin(), ee =
-				vulLocals[*i].end(); ii != ee; ++ii) {
-			errs() << "[VulArrays] " << **ii << "\n";
-		}
-		errs() << "\n";
+void VulArrays::printArrays(Function &F) {
+	if (depArrays.size() == 0 && depStructs1.size() == 0 && depStructs2.size()
+			== 0)
+		return;
+	errs() << "[VulArrays]  " << F.getName() << " function\n";
+	errs() << "[VulArrays]   Arrays:\n";
+	for (std::set<const AllocaInst*>::iterator i = depArrays.begin(), e =
+			depArrays.end(); i != e; ++i) {
+		errs() << "[VulArrays]    " << **i << "\n";
 	}
+	errs() << "[VulArrays]   Structs:\n";
+	for (std::set<const Value*>::iterator i = depStructs1.begin(), e =
+			depStructs1.end(); i != e; ++i) {
+		errs() << "[VulArrays]    " << **i << "\n";
+	}
+	//	errs() << "[VulArrays]   Structs (bitcast):\n";
+	//	for (std::set<const BitCastInst*>::iterator i = depStructs2.begin(), e =
+	//			depStructs2.end(); i != e; ++i) {
+	//		errs() << "[VulArrays]    " << **i << "\n";
+	//	}
 }
 
-std::set<const Value*> VulArrays::getVulArrays() {
-	return arrays;
+std::set<const AllocaInst*> VulArrays::getVulArrays() {
+	return depArrays;
 }
 
 char VulArrays::ID = 0;

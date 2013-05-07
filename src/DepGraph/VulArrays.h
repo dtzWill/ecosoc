@@ -24,21 +24,26 @@
 using namespace llvm;
 
 
-class VulArrays : public ModulePass {
+class VulArrays : public FunctionPass {
 	private:
-		bool runOnModule(Module &M);
+		bool runOnFunction(Function &F);
 		void searchForArray(Value* V);
 		void findVulLocals(const Value* V);
+		bool structHasArray(StructType* ST);
 		Graph* depGraph;
-		std::set<const Value*> arrays;
+		std::set<const AllocaInst*> depArrays;
+		std::set<const Value*> depStructs1; //store
+		std::set<const BitCastInst*> depStructs2; //bitcast
+		bool isValueInpDep(Value* V, std::set<Value*> inputDepValues);
+		bool structHasArray(const StructType* ST);
 		std::map<const Value*, std::set<const Value*> > input;
 		std::map<const Value*, std::set<const Value*> > vulLocals;
 	public:
 		static char ID;
 		void getAnalysisUsage(AnalysisUsage &AU) const;
 		VulArrays();
-		void printArrays();
-		std::set<const Value*> getVulArrays();
+		void printArrays(Function &F);
+		std::set<const AllocaInst*> getVulArrays();
 
 };
 
