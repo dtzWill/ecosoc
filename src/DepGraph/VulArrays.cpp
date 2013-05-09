@@ -15,25 +15,28 @@ bool VulArrays::structHasArray(StructType* ST) {
 	return false;
 }
 
-//@AI: array allocation instruction
 bool VulArrays::isValueInpDep(Value* V, std::set<Value*> inputDepValues) {
 	//Firstly, check if array or alias is passed as parameter to "any" lib function
-	std::set<GraphNode*> visitedNodes;
 	std::set<Value*> alias;
+	static std::map<GraphNode*, bool> isDep; // to avoid repeated computation
 	GraphNode* N = depGraph->findNode(V);
-	if (N != NULL) {
-		visitedNodes.clear();
-		if (isa<MemNode> (N)) {
-			MemNode *M = dyn_cast<MemNode> (N);
-			alias = M->getAliases();
-			for (std::set<Value*>::iterator ai = alias.begin(), aend =
-					alias.end(); ai != aend; ++ai) {
-				if (inputDepValues.count(*ai)) {
-					return true;
-				}
+	if (N == NULL)
+		return false;
+	if (isDep.count(N)) {
+		return isDep[N];
+	}
+	if (isa<MemNode> (N)) {
+		MemNode *M = dyn_cast<MemNode> (N);
+		alias = M->getAliases();
+		for (std::set<Value*>::iterator ai = alias.begin(), aend = alias.end(); ai
+				!= aend; ++ai) {
+			if (inputDepValues.count(*ai)) {
+				isDep[N] = true;
+				return true;
 			}
 		}
 	}
+
 	//Secondly, check store operations targeting the array
 	std::map<GraphNode*, edgeType> pred = N->getPredecessors();
 	for (std::map<GraphNode*, edgeType>::iterator i = pred.begin(), endi =
@@ -45,11 +48,13 @@ bool VulArrays::isValueInpDep(Value* V, std::set<Value*> inputDepValues) {
 						depGraph->getNearestDependency(ON->getValue(),
 								inputDepValues, false);
 				if (dep.first != NULL) {
+					isDep[N] = true;
 					return true;
 				}
 			}
 		}
 	}
+	isDep[N] = false;
 	return false;
 }
 
@@ -82,19 +87,18 @@ bool VulArrays::runOnFunction(Function &F) {
 				//				errs() << *GEP << "\n";
 				if (PointerType* PO = dyn_cast<PointerType>(GEP->getType())) {
 					if (PO->getElementType()->isArrayTy()) {
-						if (isValueInpDep(GEP, inputDepValues)) {
-							bool IsStruct = false;
-							while (isa<GetElementPtrInst> (
-									GEP->getPointerOperand())) {
-								IsStruct
-										= IsStruct
-												|| cast<PointerType> (
-														GEP->getPointerOperandType())->getElementType()->isStructTy();
-								GEP = cast<GetElementPtrInst> (
-										GEP->getPointerOperand());
-							}
-							if (IsStruct) {
-								if (AllocaInst *AI = dyn_cast<AllocaInst>(GEP)) {
+						bool IsStruct = false;
+						while (isa<GetElementPtrInst> (GEP->getPointerOperand())) {
+							IsStruct
+									= IsStruct
+											|| cast<PointerType> (
+													GEP->getPointerOperandType())->getElementType()->isStructTy();
+							GEP = cast<GetElementPtrInst> (
+									GEP->getPointerOperand());
+						}
+						if (IsStruct) {
+							if (AllocaInst *AI = dyn_cast<AllocaInst>(GEP->getPointerOperand())) {
+								if (isValueInpDep(GEP, inputDepValues)) {
 									depStructs1.insert(AI);
 								}
 							}
