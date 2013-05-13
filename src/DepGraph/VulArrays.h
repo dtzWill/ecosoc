@@ -10,6 +10,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/ilist.h"
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/Instructions.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Metadata.h"
@@ -24,16 +25,16 @@
 using namespace llvm;
 
 
-class VulArrays : public FunctionPass {
+class VulArrays : public ModulePass {
 	private:
-		bool runOnFunction(Function &F);
+		bool runOnModule(Module &M);
 		void searchForArray(Value* V);
 		void findVulLocals(const Value* V);
 		bool structHasArray(StructType* ST);
 		Graph* depGraph;
-		std::set<const AllocaInst*> depArrays;
-		std::set<const Value*> depStructs1; //store
-		std::set<const BitCastInst*> depStructs2; //bitcast
+		DenseMap<Function*, const Value*> depArrays;
+		DenseMap<Function*, const Value*> depStructs1; //store
+//		std::set<const BitCastInst*> depStructs2; //bitcast
 		bool isValueInpDep(Value* V, std::set<Value*> inputDepValues);
 		bool structHasArray(const StructType* ST);
 		std::map<const Value*, std::set<const Value*> > input;
@@ -42,8 +43,9 @@ class VulArrays : public FunctionPass {
 		static char ID;
 		void getAnalysisUsage(AnalysisUsage &AU) const;
 		VulArrays();
-		void printArrays(Function &F);
-		std::set<const AllocaInst*> getVulArrays();
+		void printArrays();
+		DenseMap<Function*, const Value*> getVulArrays();
+		DenseMap<Function*, const Value*> getVulStructs();
 
 };
 
