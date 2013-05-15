@@ -20,22 +20,18 @@
 #include<set>
 
 using namespace llvm;
-//};
+
 
 class InputDep : public ModulePass {
 	private:
-		Graph* depGraph;
+		std::set<Value*> inputDepValues;
 		bool runOnModule(Module &M);
-		void searchForArray(Value* V);
-		bool verifySignature(CallInst &CI, const StringRef &name);
-		std::set<Value*> inputDepArrays;
 	public:
-		static char ID;
-		void getAnalysisUsage(AnalysisUsage &AU) const;
+		static char ID; // Pass identification, replacement for typeid.
 		InputDep();
-		void printArrays();
-		std::set<Value*> getInputDepArrays();
-
+		void getAnalysisUsage(AnalysisUsage &AU) const;
+		bool isInputDependent(Value* V);
+		std::set<Value*> getInputDepValues();
 };
 
 #endif

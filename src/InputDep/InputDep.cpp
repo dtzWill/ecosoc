@@ -1,109 +1,106 @@
-#define DEBUG_TYPE "vulnerable"
+#define DEBUG_TYPE "inputdep"
 #include "InputDep.h"
 
 InputDep::InputDep() :
 	ModulePass(ID) {
 }
 
-bool InputDep::verifySignature(CallInst &CI, const StringRef &name) {
-	//	TODO: Check if function really looks like libc function to avoid misinterpret user redefinition
-	//	http://llvm.org/docs/doxygen/html/MemoryBuiltins_8cpp_source.html line 123
-	return true;
-}
+//TODO: Verify signature
 
-/** This method expects to receive a node that is input-dependent and looks for paths
- * from it to arrays */
-void InputDep::searchForArray(Value* V) {
-	std::set<GraphNode*> visitedNodes;
-	std::set<Value*> alias;
-	GraphNode* N = depGraph->findNode(V);
-	visitedNodes.clear();
-	depGraph->dfsVisit(N, visitedNodes);
-	for (std::set<GraphNode*>::iterator it = visitedNodes.begin(), vend =
-			visitedNodes.end(); it != vend; ++it) {
-		if (isa<MemNode> (*it)) {
-			MemNode *M = dyn_cast<MemNode> (*it);
-			alias = M->getAliases();
-			for (std::set<Value*>::iterator ai = alias.begin(), aend =
-					alias.end(); ai != aend; ++ai) {
-				if (AllocaInst *AI = dyn_cast<AllocaInst>(*ai)) {
-					Type* Ty = AI->getAllocatedType();
-					if (Ty->isArrayTy()) {
-						inputDepArrays.insert(*ai);
-						//						DEBUG(errs() << "Found **ai" << **ai << "\n";);
-					}
-				}
-			}
-		}
-	}
-}
 
+/*
+ * Main args are always input
+ * Functions currently considered as input functions:
+ * scanf
+ * fscanf
+ * gets
+ * fgets
+ * fread
+ * fgetc
+ * getc
+ * getchar
+ * recv
+ * recvmsg
+ * read
+ * recvfrom
+ * fread
+ */
 bool InputDep::runOnModule(Module &M) {
 	//	DEBUG (errs() << "Function " << F.getName() << "\n";);
-	moduleDepGraph &DG = getAnalysis<moduleDepGraph> ();
-	depGraph = DG.depGraph;
 	for (Module::iterator F = M.begin(), eM = M.end(); F != eM; ++F) {
 		for (Function::iterator BB = F->begin(), e = F->end(); BB != e; ++BB) {
 			for (BasicBlock::iterator I = BB->begin(), ee = BB->end(); I != ee; ++I) {
 				if (CallInst *CI = dyn_cast<CallInst>(I)) {
 					Function *Callee = CI->getCalledFunction();
 					if (Callee) {
-						if (Callee->getName().equals(
-								StringRef("__isoc99_scanf"))
-								&& verifySignature(*CI, Callee->getName())) {
+						StringRef Name = Callee->getName();
+						if (Name.equals("main")) {
+							Value* V = CI->getArgOperand(1); //char* argv[]
+							inputDepValues.insert(V);
+						}
+						if (Name.equals("__isoc99_scanf") || Name.equals(
+								"scanf")) {
 							for (unsigned i = 1, eee = CI->getNumArgOperands(); i
 									!= eee; ++i) { // skip format string (i=1)
 								Value* V = CI->getArgOperand(i);
-								searchForArray(V);
+								if (V->getType()->isPointerTy()) {
+									inputDepValues.insert(V);
+								}
 							}
-						} else if (Callee->getName().equals(
-								StringRef("@__isoc99_fscanf"))
-								&& verifySignature(*CI, Callee->getName())) {
+						} else if (Name.equals("__isoc99_fscanf")
+								|| Name.equals("fscanf")) {
 							for (unsigned i = 2, eee = CI->getNumArgOperands(); i
 									!= eee; ++i) { // skip file pointer and format string (i=1)
 								Value* V = CI->getArgOperand(i);
-								searchForArray(V);
+								if (V->getType()->isPointerTy()) {
+									inputDepValues.insert(V);
+								}
 							}
-						} else if ((Callee->getName().equals(StringRef("gets"))
-								|| Callee->getName().equals(StringRef("fgets"))
-								|| Callee->getName().equals(StringRef("fread")))
-								&& verifySignature(*CI, Callee->getName())) {
+						} else if ((Name.equals("gets") || Name.equals("fgets")
+								|| Name.equals("fread"))
+								|| Name.equals("getwd")
+								|| Name.equals("getcwd")) {
 							Value* V = CI->getArgOperand(0); //the first argument receives the input for these functions
-							searchForArray(V);
-						} else if ((Callee->getName().equals(StringRef("fgetc"))
-								|| Callee->getName().equals(StringRef("getc"))
-								|| Callee->getName().equals(
-										StringRef("getchar")))
-								&& verifySignature(*CI, Callee->getName())) {
-							searchForArray(CI);
+							if (V->getType()->isPointerTy()) {
+								inputDepValues.insert(V);
+							}
+						} else if ((Name.equals("fgetc") || Name.equals("getc")
+								|| Name.equals("getchar"))) {
+							inputDepValues.insert(Callee);
+						} else if (Name.equals("recv")
+								|| Name.equals("recvmsg")
+								|| Name.equals("read")) {
+							Value* V = CI->getArgOperand(1);
+							if (V->getType()->isPointerTy()) {
+								inputDepValues.insert(V);
+							}
+						} else if (Name.equals("recvfrom")) {
+							Value* V = CI->getArgOperand(1);
+							if (V->getType()->isPointerTy()) {
+								inputDepValues.insert(V);
+							}
+							V = CI->getArgOperand(4);
+							if (V->getType()->isPointerTy()) {
+								inputDepValues.insert(V);
+							}
 						}
-					} else
-						errs() << "indirect call\n"; // Ponteiro pra função: verificar alias?
-				}
+					}
+				} //else
+				//						errs() << "indirect call\n"; // Ponteiro pra função: verificar alias?
 			}
 		}
 	}
-	DEBUG(printArrays(););
 	return false;
 }
 
 void InputDep::getAnalysisUsage(AnalysisUsage &AU) const {
 	AU.setPreservesAll();
-	AU.addRequired<moduleDepGraph> ();
 }
 
-void InputDep::printArrays() {
-	errs() << "Input-dependent arrays:\n";
-	for (std::set<Value*>::iterator i = inputDepArrays.begin(), e =
-			inputDepArrays.end(); i != e; ++i) {
-		errs() << **i << "\n";
-	}
-}
-
-std::set<Value*> InputDep::getInputDepArrays() {
-	return inputDepArrays;
+std::set<Value*> InputDep::getInputDepValues() {
+	return inputDepValues;
 }
 
 char InputDep::ID = 0;
 static RegisterPass<InputDep> X("input-dep",
-		"Input Dependency Pass: looks for buffers that are input-dependant");
+		"Input Dependency Pass: looks for values that are input-dependant");
