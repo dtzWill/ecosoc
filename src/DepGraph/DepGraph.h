@@ -242,7 +242,12 @@ namespace llvm {
                          */
                         std::pair<GraphNode*, int> getNearestDependency(Value* sink, std::set<Value*> sources, bool skipMemoryNodes);
 
-
+                        /*
+                         * Function getEveryDependency
+                         *
+                         * Given a sink, returns shortest path to each source (if it exists)
+                         */
+                        std::map<GraphNode*, std::vector<GraphNode*> > getEveryDependency(llvm::Value* sink, std::set<llvm::Value*> sources, bool skipMemoryNodes);
 
 
         };
