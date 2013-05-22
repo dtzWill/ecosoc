@@ -680,6 +680,71 @@ std::pair<GraphNode*, int> llvm::Graph::getNearestDependency(llvm::Value* sink, 
 }
 
 
+std::map<GraphNode*, std::vector<GraphNode*> > llvm::Graph::getEveryDependency(llvm::Value* sink, std::set<llvm::Value*> sources, bool skipMemoryNodes) {
+
+	std::map<llvm::GraphNode*, std::vector<GraphNode*> > result;
+	DenseMap<GraphNode*, GraphNode*> parent;
+	std::vector<GraphNode*> path;
+
+//	errs() << "--- Get every dep --- \n";
+	if (GraphNode* startNode = findNode(sink)) {
+//		errs() << "found sink\n";
+		std::set<GraphNode*> sourceNodes = findNodes(sources);
+		std::map<GraphNode*, int> nodeColor;
+		std::list<GraphNode*> workList;
+//		int size = 0;
+		for(std::set<GraphNode*>::iterator Nit = nodes.begin(), Nend = nodes.end(); Nit != Nend; Nit++){
+//			size++;
+			if (skipMemoryNodes && isa<MemNode>(*Nit))
+				nodeColor[*Nit] = 1;
+			else
+				nodeColor[*Nit] = 0;
+		}
+
+		workList.push_back(startNode);
+		nodeColor[startNode] = 1;
+		/*
+		 * we will do a breadth search on the predecessors of each node,
+		 * until we find one of the sources. If we don't find any, then the
+		 * sink doesn't depend on any source.
+		 */
+//		int pb = 1;
+		while (!workList.empty()) {
+			GraphNode* workNode = workList.front();
+			workList.pop_front();
+			if (sourceNodes.count(workNode)) {
+				//Retrieve path
+				path.clear();
+				GraphNode* n = workNode;
+				path.push_back(n);
+				while (parent.count(n)) {
+					path.push_back(parent[n]);
+					n = parent[n];
+				}
+				std::reverse(path.begin(), path.end());
+//				errs() << "Path: ";
+//				for (std::vector<GraphNode*>::iterator i = path.begin(), e = path.end(); i != e; ++i) {
+//					errs() << (*i)->getLabel() << " | ";
+//				}
+//				errs() << "\n";
+				result[workNode] = path;
+			}
+			std::map<GraphNode*, edgeType> preds =  workNode->getPredecessors();
+			for (std::map<GraphNode*, edgeType>::iterator pred = preds.begin(), pend = preds.end(); pred != pend; pred++ ) {
+				if (nodeColor[pred->first] == 0) { // the node hasn't been processed yet
+					nodeColor[pred->first] = 1;
+					workList.push_back(pred->first);
+//					pb++;
+					parent[pred->first] = workNode;
+				}
+			}
+//			errs() << pb << "/" << size << "\n";
+		}
+	}
+	return result;
+}
+
+
 //*********************************************************************************************************************************************************************
 //                                                                                                                              DEPENDENCE GRAPH CLIENT
 //*********************************************************************************************************************************************************************
