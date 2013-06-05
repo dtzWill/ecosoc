@@ -235,6 +235,14 @@ int llvm::MemNode::getAliasSetId() const {
 /*
  * Class Graph
  */
+std::set<GraphNode*>::iterator Graph::begin(){
+	return(nodes.begin());
+}
+
+std::set<GraphNode*>::iterator Graph::end(){
+	return(nodes.end());
+}
+
 Graph::~Graph() {
         nodes.clear();
 }
@@ -260,30 +268,26 @@ Graph Graph::generateSubGraph(Value *src, Value *dst) {
         dfsVisitBack(destination, visitedNodes2);
 
         //check the nodes visited in both directions
-        for (std::set<GraphNode*>::iterator it = visitedNodes1.begin(); it
-                        != visitedNodes1.end(); ++it) {
+        for (std::set<GraphNode*>::iterator it = visitedNodes1.begin(); it != visitedNodes1.end(); ++it) {
                 if (visitedNodes2.count(*it) > 0) {
                         nodeMap[*it] = (*it)->clone();
                 }
         }
 
         //connect the new vertices
-        for (std::map<GraphNode*, GraphNode*>::iterator it = nodeMap.begin(); it
-                        != nodeMap.end(); ++it) {
+        for (std::map<GraphNode*, GraphNode*>::iterator it = nodeMap.begin(); it != nodeMap.end(); ++it) {
 
                 std::map<GraphNode*, edgeType> succs = it->first->getSuccessors();
 
-                for (std::map<GraphNode*, edgeType>::iterator succ = succs.begin(),
-                                s_end = succs.end(); succ != s_end; succ++) {
+                for (std::map<GraphNode*, edgeType>::iterator succ = succs.begin(), s_end = succs.end(); succ != s_end; succ++) {
                         if (nodeMap.count(succ->first) > 0) {
-
                                 it->second->connect(nodeMap[succ->first], succ->second);
 
                         }
                 }
 
-                if ( ! G.nodes.count(it->second)) G.nodes.insert(it->second);
-
+                if ( !G.nodes.count(it->second))
+                	G.nodes.insert(it->second);
         }
 
         return G;
@@ -788,6 +792,7 @@ int llvm::Graph::getNumDataEdges() {
 int llvm::Graph::getNumControlEdges() {
 	return getNumEdges(etControl);
 }
+
 
 
 //*********************************************************************************************************************************************************************

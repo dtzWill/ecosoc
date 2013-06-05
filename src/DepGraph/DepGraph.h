@@ -261,6 +261,11 @@ private:
 
 
 public:
+        typedef std::set<GraphNode*>::iterator iterator;
+
+        std::set<GraphNode*>::iterator begin();
+        std::set<GraphNode*>::iterator end();
+
         Graph(AliasSets *AS) :
                 AS(AS) {
                 NrEdges = 0;
