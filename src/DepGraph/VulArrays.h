@@ -11,16 +11,21 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/ilist.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/SetVector.h"
 #include "llvm/Instructions.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Metadata.h"
 #include "llvm/PassAnalysisSupport.h"
 #include "llvm/Function.h"
+#include "llvm/DebugInfo.h"
 #include "DepGraph.h"
 #include "llvm/ADT/StringRef.h"
 #include "DepGraph.h"
 #include "InputValues.h"
+#include "InputDep.h"
+#include "AddStore.h"
 #include<set>
+#include<utility>
 
 using namespace llvm;
 
@@ -31,21 +36,22 @@ class VulArrays : public ModulePass {
 		void searchForArray(Value* V);
 		void findVulLocals(const Value* V);
 		bool structHasArray(StructType* ST);
+		//vulnerable node n: (input value v: path from v to n)
+		DenseMap<GraphNode*, DenseMap<const Value*, std::vector<GraphNode*> > > Arrays;
+		DenseMap<GraphNode*, DenseMap<const Value*, std::vector<GraphNode*> > > Structs1;
+		DenseMap<GraphNode*, DenseMap<const Value*, std::vector<GraphNode*> > > Structs2;
+		DenseMap<std::pair<GraphNode*, GraphNode*>, std::pair<unsigned, std::string> > debugInfo;
 		Graph* depGraph;
-		DenseMap<Function*, const Value*> depArrays;
-		DenseMap<Function*, const Value*> depStructs1; //store
-//		std::set<const BitCastInst*> depStructs2; //bitcast
-		bool isValueInpDep(Value* V, std::set<Value*> inputDepValues);
-		bool structHasArray(const StructType* ST);
-		std::map<const Value*, std::set<const Value*> > input;
-		std::map<const Value*, std::set<const Value*> > vulLocals;
+
+		const Value* isValueInpDep(Value* V, std::set<Value*> inputDepValues);
+		DenseMap<const Value*, std::vector<GraphNode*> > getValueDeps(Value* V, std::set<Value*> inputDepValues);
+		void toDot(std::string name);
+//		void printStats();
 	public:
 		static char ID;
 		void getAnalysisUsage(AnalysisUsage &AU) const;
 		VulArrays();
 		void printArrays();
-		DenseMap<Function*, const Value*> getVulArrays();
-		DenseMap<Function*, const Value*> getVulStructs();
 
 };
 
