@@ -262,7 +262,6 @@ Graph::~Graph() {
 	for (std::set<GraphNode*>::iterator it = nodes.begin(); it != nodes.end(); ++it) {
 		GraphNode* g = *it;
 		delete g;
-		errs()<<"passei aqui\n";
 	}
 
     nodes.clear();
