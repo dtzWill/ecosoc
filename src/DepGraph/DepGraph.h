@@ -29,6 +29,7 @@
 #include <string>
 #include <sstream>
 #include <stdio.h>
+#include <stdlib.h>
 
 using namespace std;
 
@@ -158,6 +159,8 @@ public:
         ;
         Function* getCalledFunction() const;
 
+        CallInst* getCallInst() const;
+
         std::string getLabel();
         std::string getShape();
 
@@ -261,6 +264,7 @@ private:
 
 
 public:
+
         typedef std::set<GraphNode*>::iterator iterator;
 
         std::set<GraphNode*>::iterator begin();
@@ -272,6 +276,11 @@ public:
         }
         ; //Constructor
         ~Graph(); //Destructor - Free adjacent matrix's memory
+
+
+
+        int getTaintedEdges ();
+
         GraphNode* addInst(Value *v); //Add an instruction into Dependence Graph
 
         void addEdge(GraphNode* src, GraphNode* dst, edgeType type = etData);
@@ -300,8 +309,8 @@ public:
 
         Graph generateSubGraph(Value *src, Value *dst); //Take a source value and a destination value and find a Connecting Subgraph from source to destination
 
-        void dfsVisit(GraphNode* u, std::set<GraphNode*> &visitedNodes); //Used by findConnectingSubgraph() method
-        void dfsVisitBack(GraphNode* u, std::set<GraphNode*> &visitedNodes); //Used by findConnectingSubgraph() method
+        void dfsVisit(GraphNode* u, GraphNode* u2, std::set<GraphNode*> &visitedNodes); //Used by findConnectingSubgraph() method
+        void dfsVisitBack(GraphNode* u, GraphNode* u2, std::set<GraphNode*> &visitedNodes); //Used by findConnectingSubgraph() method
 
         void deleteCallNodes(Function* F);
 
