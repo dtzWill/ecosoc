@@ -69,7 +69,11 @@ Graph* AddStore::getModifiedGraph() {
 
 void AddStore::getAnalysisUsage(AnalysisUsage &AU) const {
 	AU.addRequired<moduleDepGraph> ();
-	AU.setPreservesAll();
+//	AU.setPreservesAll();
+	AU.addPreservedID(InputDep::ID);
+//	AU.addPreservedID(AliasSets::ID);
+	AU.addPreservedID(PADriver::ID);
+
 }
 
 char AddStore::ID = 0;

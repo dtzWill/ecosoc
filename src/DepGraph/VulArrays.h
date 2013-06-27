@@ -52,6 +52,9 @@ class VulArrays : public ModulePass {
 		void getAnalysisUsage(AnalysisUsage &AU) const;
 		VulArrays();
 		void printArrays();
+		void printStats();
+		DenseMap<GraphNode*, DenseMap<const Value*, std::vector<GraphNode*> > > getVulArrays();
+		DenseMap<GraphNode*, DenseMap<const Value*, std::vector<GraphNode*> > > getVulStructs();
 
 };
 
