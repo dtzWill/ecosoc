@@ -8,6 +8,7 @@
 #include "llvm/User.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/DebugInfo.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/ilist.h"
 #include "llvm/Instructions.h"
@@ -15,7 +16,7 @@
 #include "llvm/Metadata.h"
 #include "llvm/PassAnalysisSupport.h"
 #include "llvm/Function.h"
-#include "llvm/DepGraph.h"
+#include "DepGraph.h"
 #include "llvm/ADT/StringRef.h"
 #include<set>
 
@@ -25,6 +26,7 @@ using namespace llvm;
 class InputDep : public ModulePass {
 	private:
 		std::set<Value*> inputDepValues;
+		std::map<Value*, int> lineNo;
 		bool runOnModule(Module &M);
 	public:
 		static char ID; // Pass identification, replacement for typeid.
@@ -32,6 +34,8 @@ class InputDep : public ModulePass {
 		void getAnalysisUsage(AnalysisUsage &AU) const;
 		bool isInputDependent(Value* V);
 		std::set<Value*> getInputDepValues();
+		int getLineNo(Value*);
+		void printer();
 };
 
 #endif

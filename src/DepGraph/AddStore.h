@@ -16,8 +16,11 @@
 #include "llvm/Metadata.h"
 #include "llvm/PassAnalysisSupport.h"
 #include "llvm/Function.h"
-#include "llvm/DepGraph.h"
 #include "llvm/ADT/StringRef.h"
+#include "InputDep.h"
+#include "DepGraph.h"
+#include "../PADriver/PADriver.h"
+#include "../AliasSets/AliasSets.h"
 #include<set>
 
 using namespace llvm;

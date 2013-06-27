@@ -1,8 +1,22 @@
 #include "VulArrays.h"
-//STATISTIC(NumVulArrays, "The number of vulnerability-causing arrays");
+#define DEBUG_TYPE "vulArrays"
+STATISTIC(NumFunc, "The number of functions");
+STATISTIC(NumFuncArr, "The number of functions that contain arrays");
+STATISTIC(NumArr, "The number of arrays");
+STATISTIC(NumVulArrays, "The number of vul arrays");
+STATISTIC(NumInsts, "The number of instructions");
+STATISTIC(NumStores, "The number of store insts");
+STATISTIC(NumVulArraysAr, "The number of vulnerable contiguous arrays");
+STATISTIC(NumVulArraysSt, "The number of vulnerable arrays in structs");
 
 VulArrays::VulArrays() :
 	ModulePass(ID) {
+	NumFuncArr = 0;
+	NumArr = 0;
+	NumVulArrays = 0;
+	NumStores = 0;
+	NumVulArraysAr = 0;
+	NumVulArraysSt = 0;
 }
 
 bool VulArrays::structHasArray(StructType* ST) {
@@ -27,13 +41,16 @@ DenseMap<const Value*, std::vector<GraphNode*> > VulArrays::getValueDeps(
 	GraphNode* N = depGraph->findNode(V);
 	//	errs() << "--- ";
 	//	errs() << N->getLabel() << "\n";
-	if (N == NULL)
+
+	if (!N) {
 		return result;
+		errs() << "Value " << *V << " not found.\n";
+	}
 	if (Deps.count(N)) {
 		return Deps[N];
 	}
-	if (isa<MemNode> (N)) {
-		MemNode *M = dyn_cast<MemNode> (N);
+	MemNode* M = dyn_cast<MemNode> (N);
+	if (M) {
 		alias = M->getAliases();
 		for (std::set<Value*>::iterator ai = alias.begin(), aend = alias.end(); ai
 				!= aend; ++ai) {
@@ -57,16 +74,18 @@ DenseMap<const Value*, std::vector<GraphNode*> > VulArrays::getValueDeps(
 				std::map<GraphNode*, std::vector<GraphNode*> > dep =
 						depGraph->getEveryDependency(V, inputDepValues, false);
 				if (dep.begin() != dep.end()) {
+					//					errs() << "Dep found\n";
 					// Get debug info
-					if (Instruction* I = dyn_cast<Instruction>(ON->getValue())) {
-						if (MDNode *mdn = I->getMetadata("dbg")) {
-							DILocation Loc(mdn); // DILocation is in DebugInfo.h
-							unsigned Line = Loc.getLineNumber();
-							StringRef File = Loc.getFilename();
-							debugInfo[std::make_pair<GraphNode*, GraphNode*>(n,
-									N)]
-									= std::make_pair<unsigned, std::string>(
-											Line, File.str());
+					if (ON->getValue() != NULL) {
+						if (Instruction* I = dyn_cast<Instruction>(ON->getValue())) {
+							if (MDNode *mdn = I->getMetadata("dbg")) {
+								DILocation Loc(mdn); // DILocation is in DebugInfo.h
+								unsigned Line = Loc.getLineNumber();
+								StringRef File = Loc.getFilename();
+								debugInfo[std::make_pair<GraphNode*, GraphNode*>(
+										n, N)] = std::make_pair<unsigned,
+										std::string>(Line, File.str());
+							}
 						}
 					}
 					for (std::map<GraphNode*, std::vector<GraphNode*> >::iterator
@@ -143,19 +162,29 @@ bool VulArrays::runOnModule(Module &M) {
 	//	InputValues &IV = getAnalysis<InputValues> ();
 	InputDep &IV = getAnalysis<InputDep> ();
 	AddStore &AS = getAnalysis<AddStore> ();
-	//	moduleDepGraph &m = getAnalysis<moduleDepGraph> ();
-	//	depGraph = m.depGraph;
+	//		moduleDepGraph &m = getAnalysis<moduleDepGraph> ();
+	//		depGraph = m.depGraph;
 	depGraph = AS.getModifiedGraph();
+	DenseMap<Function*, bool> funcHasArray;
 	std::set<Value*> inputDepValues = IV.getInputDepValues();
 	for (Module::iterator F = M.begin(), endF = M.end(); F != endF; ++F) {
 		std::set<Value*> arrays;
 		for (Function::iterator BB = F->begin(), endBB = F->end(); BB != endBB; ++BB) {
+			NumFunc++;
 			for (BasicBlock::iterator I = BB->begin(), endI = BB->end(); I
 					!= endI; ++I) {
-				if (AllocaInst* AI = dyn_cast<AllocaInst>(I)) {
+				NumInsts++;
+				if (isa<StoreInst> (I))
+					NumStores++;
+				else if (AllocaInst* AI = dyn_cast<AllocaInst>(I)) {
 					Type* Ty = AI->getAllocatedType();
 					if (Ty->isArrayTy()) {
 						arrays.insert(AI);
+						NumArr++;
+						if (!funcHasArray[F]) {
+							funcHasArray[F] = true;
+							NumFuncArr++;
+						}
 					}
 				} else if (GetElementPtrInst* GEP = dyn_cast<GetElementPtrInst>(I)) {
 					if (PointerType* PO = dyn_cast<PointerType>(GEP->getType())) {
@@ -184,6 +213,8 @@ bool VulArrays::runOnModule(Module &M) {
 										//										depStructs1[F].insert(
 										//												std::make_pair(AI, v));
 										Structs1[depGraph->findNode(AI)] = m;
+										NumVulArrays++;
+										NumVulArraysSt++;
 									}
 								}
 							}
@@ -206,15 +237,22 @@ bool VulArrays::runOnModule(Module &M) {
 				}
 			}
 		}
+		bool dep = false;
 		if (arrays.size() > 1) {
 			for (std::set<Value*>::iterator i = arrays.begin(), e =
 					arrays.end(); i != e; ++i) {
 				DenseMap<const Value*, std::vector<GraphNode*> > m =
 						getValueDeps(*i, inputDepValues);
 				if (m.begin() != m.end()) {
+					dep = true;
 					Arrays[depGraph->findNode(*i)] = m;
 				}
 			}
+		}
+		if (dep) {
+			NumVulArrays += arrays.size() - 1;
+			NumVulArraysAr += arrays.size() - 1;
+			;
 		}
 	}
 	toDot(M.getModuleIdentifier());
@@ -305,58 +343,45 @@ void VulArrays::toDot(std::string name) {
 	}
 	raw_fd_ostream File(fileName.c_str(), ErrorInfo);
 	if (ErrorInfo.compare("")) {
-		errs () << "[VulArrays]  " << ErrorInfo << "\n";
-	}
-	else
+		errs() << "[VulArrays]  " << ErrorInfo << "\n";
+	} else
 		depGraph->toDot(name, &File, guider);
+	printStats();
 }
 
-//void VulArrays::printStats() {
-//	int count;
-//	double sum;
-//	for (DenseMap<Value*, DenseMap<const Value*, std::vector<GraphNode*> > >::iterator
-//			i = Arrays.begin(), e = Arrays.end(); i != e; ++i) {
-//		errs() << "[VulArrays] " << *(i->first) << "\t";
-//		count = 0;
-//		sum = 0;
-//		for (DenseMap<const Value*, std::vector<GraphNode*> >::iterator ii =
-//				i->second.begin(), ee = i->second.end(); ii != ee; ++ii) {
-//			++count;
-//			sum += ii->second.size() - 1;
-//		}
-//		errs() << sum / count << "\n";
-//	}
-//	errs() << "[VulArrays] ***********************************\n";
-//	for (DenseMap<Value*, DenseMap<const Value*, std::vector<GraphNode*> > >::iterator
-//			i = Structs1.begin(), e = Structs1.end(); i != e; ++i) {
-//		errs() << "[VulArrays] " << *(i->first) << "\t";
-//		count = 0;
-//		sum = 0;
-//		for (DenseMap<const Value*, std::vector<GraphNode*> >::iterator ii =
-//				i->second.begin(), ee = i->second.end(); ii != ee; ++ii) {
-//			++count;
-//			sum += ii->second.size() - 1;
-//		}
-//		errs() << sum / count << "\n";
-//	}
-//	errs() << "[VulArrays] ***********************************\n";
-//	for (DenseMap<Value*, DenseMap<const Value*, std::vector<GraphNode*> > >::iterator
-//			i = Structs2.begin(), e = Structs2.end(); i != e; ++i) {
-//		errs() << "[VulArrays] " << *(i->first) << "\t";
-//		count = 0;
-//		sum = 0;
-//		for (DenseMap<const Value*, std::vector<GraphNode*> >::iterator ii =
-//				i->second.begin(), ee = i->second.end(); ii != ee; ++ii) {
-//			++count;
-//			sum += ii->second.size() - 1;
-//		}
-//		errs() << sum / count << "\n";
-//	}
-//}
+void VulArrays::printStats() {
+	int count;
+	double sum;
+	for (DenseMap<GraphNode*, DenseMap<const Value*, std::vector<GraphNode*> > >::iterator
+			i = Arrays.begin(), e = Arrays.end(); i != e; ++i) {
+		errs() << "[VulArrays] ";
+		count = 0;
+		sum = 0;
+		for (DenseMap<const Value*, std::vector<GraphNode*> >::iterator ii =
+				i->second.begin(), ee = i->second.end(); ii != ee; ++ii) {
+			++count;
+			sum += ii->second.size() - 1;
+		}
+		errs() << sum / count << "\n";
+	}
+	errs() << "[VulArrays] ***********************************\n";
+	for (DenseMap<GraphNode*, DenseMap<const Value*, std::vector<GraphNode*> > >::iterator
+			i = Structs1.begin(), e = Structs1.end(); i != e; ++i) {
+		errs() << "[VulArrays] ";
+		count = 0;
+		sum = 0;
+		for (DenseMap<const Value*, std::vector<GraphNode*> >::iterator ii =
+				i->second.begin(), ee = i->second.end(); ii != ee; ++ii) {
+			++count;
+			sum += ii->second.size() - 1;
+		}
+		errs() << sum / count << "\n";
+	}
+}
 
 void VulArrays::getAnalysisUsage(AnalysisUsage &AU) const {
 	AU.setPreservesAll();
-	//	AU.addRequired<moduleDepGraph> ();
+	//		AU.addRequired<moduleDepGraph> ();
 	AU.addRequired<AddStore> ();
 	AU.addRequired<InputValues> ();
 	AU.addRequired<InputDep> ();
