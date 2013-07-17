@@ -394,7 +394,7 @@ public:
                 //Print dependency graph (in dot format)
                 g->toDot(M.getModuleIdentifier(), Filename);
 
-                DisplayGraph(sys::Path(Filename), true, GraphProgram::DOT);
+                DisplayGraph(Filename, true, GraphProgram::DOT);
 
                 return false;
         }
