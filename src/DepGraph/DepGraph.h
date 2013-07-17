@@ -29,7 +29,6 @@
 #include <string>
 #include <sstream>
 #include <stdio.h>
-#include <stdlib.h>
 
 using namespace std;
 
@@ -159,8 +158,6 @@ public:
         ;
         Function* getCalledFunction() const;
 
-        CallInst* getCallInst() const;
-
         std::string getLabel();
         std::string getShape();
 
@@ -264,24 +261,12 @@ private:
 
 
 public:
-
-        typedef std::set<GraphNode*>::iterator iterator;
-
-        std::set<GraphNode*>::iterator begin();
-        std::set<GraphNode*>::iterator end();
-
         Graph(AliasSets *AS) :
                 AS(AS) {
                 NrEdges = 0;
         }
         ; //Constructor
         ~Graph(); //Destructor - Free adjacent matrix's memory
-
-
-
-        int getTaintedEdges ();
-        int getTaintedNodesSize ();
-
         GraphNode* addInst(Value *v); //Add an instruction into Dependence Graph
 
         void addEdge(GraphNode* src, GraphNode* dst, edgeType type = etData);
@@ -291,15 +276,19 @@ public:
 
         OpNode* findOpNode(Value *op); //Return the pointer to the node or NULL if it is not in the graph
 
+        std::set<GraphNode*> getNodes();
+
         //print graph in dot format
         class Guider {
         public:
+                Guider(Graph* graph);
                 std::string getNodeAttrs(GraphNode* n);
                 std::string getEdgeAttrs(GraphNode* u, GraphNode* v);
                 void setNodeAttrs(GraphNode* n, std::string attrs);
                 void setEdgeAttrs(GraphNode* u, GraphNode* v, std::string attrs);
                 void clear();
         private:
+                Graph* graph;
                 DenseMap<GraphNode*, std::string> nodeAttrs;
                 DenseMap<std::pair<GraphNode*, GraphNode*>, std::string> edgeAttrs;
         };
@@ -310,8 +299,8 @@ public:
 
         Graph generateSubGraph(Value *src, Value *dst); //Take a source value and a destination value and find a Connecting Subgraph from source to destination
 
-        void dfsVisit(GraphNode* u, GraphNode* u2, std::set<GraphNode*> &visitedNodes); //Used by findConnectingSubgraph() method
-        void dfsVisitBack(GraphNode* u, GraphNode* u2, std::set<GraphNode*> &visitedNodes); //Used by findConnectingSubgraph() method
+        void dfsVisit(GraphNode* u, std::set<GraphNode*> &visitedNodes); //Used by findConnectingSubgraph() method
+        void dfsVisitBack(GraphNode* u, std::set<GraphNode*> &visitedNodes); //Used by findConnectingSubgraph() method
 
         void deleteCallNodes(Function* F);
 
@@ -331,7 +320,6 @@ public:
         std::map<GraphNode*, std::vector<GraphNode*> > getEveryDependency(
                         llvm::Value* sink, std::set<llvm::Value*> sources,
                         bool skipMemoryNodes);
-
 
         int getNumOpNodes();
         int getNumCallNodes();
@@ -406,7 +394,7 @@ public:
                 //Print dependency graph (in dot format)
                 g->toDot(M.getModuleIdentifier(), Filename);
 
-                DisplayGraph(Filename, true, GraphProgram::DOT);
+                DisplayGraph(sys::Path(Filename), true, GraphProgram::DOT);
 
                 return false;
         }
