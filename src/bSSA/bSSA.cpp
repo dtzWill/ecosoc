@@ -4,11 +4,8 @@
 
 using namespace llvm;
 
-
 std::vector<BasicBlock *> ProcessedBB;
 
-
-//Pred Class member functions
 //Receive a predicate and include it on predicate attribute
 Pred::Pred(Value *p) {
 	predicate = p;
@@ -66,17 +63,13 @@ bool Pred::isGated (Instruction *op) {
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-//bSSA class member functions
-
-//Passes which are used by this pass
+//Passes which are used by bSSA pass
 void bSSA::getAnalysisUsage(AnalysisUsage &AU) const {
 
 		AU.addRequired<PostDominatorTree>();
 		AU.addRequired<moduleDepGraph>();
 
-        // This pass modifies the program, but not the CFG
+        // This pass will modifies the program, but not the CFG
         AU.setPreservesCFG();
 
 }
@@ -89,42 +82,47 @@ bool bSSA::runOnModule(Module &M) {
 		//Getting dependency graph
 		Graph *g = DepGraph.depGraph;
 
-		std::vector<Value *> src, dst; //vetor src armazena todas as instruções que geram informação secreta e vetor dst armazena canais de saída públicos
+		//src stores the instructions which are source of secret information
+		//dst stores the instructions  which are public output channel like printf()
+		std::vector<Value *> src, dst;
 
 		for (Module::iterator Mit = M.begin(), Mend = M.end(); Mit != Mend; ++Mit) {
 			F = Mit;
-			// Iterate over all Basic Blocks of the Function, calling a função para criar a tabela de predicado
+			// Iterate over all Basic Blocks of the Function
 			for (Function::iterator Fit = F->begin(), Fend = F->end(); Fit != Fend; ++Fit) {
-				makeTable(Fit, F);
+				makeTable(Fit, F); //Creating in memory the table with predicates and gated instructions
 			}
 			
 		}
 
-
+		//Including control edges into dependence graph.
 		incGraph (g);
 
-		errs()<<g->getNumVarNodes()<<" \n";
-		errs()<<g->getNumOpNodes()<<" \n";
-		errs()<<g->getNumMemNodes()<<" \n";
-		errs()<<g->getNumDataEdges()<<" \n";
-		errs()<<g->getNumControlEdges()<<" \n";
+		//Stats from dependence graph
+		errs()<<"Var Nodes " << g->getNumVarNodes()<<" \n";
+		errs()<<"Op Nodes " <<g->getNumOpNodes()<<" \n";
+		errs()<<"Mem Nodes " <<g->getNumMemNodes()<<" \n";
+		errs()<<"Data Edges " <<g->getNumDataEdges()<<" \n";
+		errs()<<"Control Nodes " <<g->getNumControlEdges()<<" \n";
 
 
 
-		//Coleta instruções que geram segredos e instruções que vazam informação
+		//Interates on all source code in order to get the sources of address (secret information) and sinks (instructions like printf)
 		for (Module::iterator F = M.begin(), eM = M.end(); F != eM; ++F) {
 				for (Function::iterator BB = F->begin(), e = F->end(); BB != e; ++BB) {
 					for (BasicBlock::iterator I = BB->begin(), ee = BB->end(); I != ee; ++I) {
-						if (dyn_cast<Instruction>(I)->getOpcode()==Instruction::PtrToInt) { //Se é instrução que transforma ponteiro em inteiro
-							//src.push_back(I);
+						if (dyn_cast<Instruction>(I)->getOpcode()==Instruction::PtrToInt) {
+							src.push_back(I);
+						}else if (dyn_cast<Instruction>(I)->getOpcode()==Instruction::Alloca) {
+							src.push_back(I);
 						}
 
-						//Se é uma instrução de chamada de função
+						//If is a function call
 						if (CallInst *CI = dyn_cast<CallInst>(I)) {
 							Function *Callee = CI->getCalledFunction();
 							if (Callee) {
 								StringRef Name = Callee->getName();
-								//Se é uma função de saída, memoriza tal instrução no vector dst
+								//if is a print function
 								if (Name.equals("printf")) {
 									dst.push_back(I);
 								}else if (Name.equals("fiprintf")) {
@@ -133,19 +131,9 @@ bool bSSA::runOnModule(Module &M) {
 									  dst.push_back(I);
 								}else if (Name.equals("iprintf")) {
 									  dst.push_back(I);
-								}else if (Name.equals("siprintf")) {
-									  dst.push_back(I);
-								}else if (Name.equals("snprintf")) {
-									  dst.push_back(I);
-								}else if (Name.equals("sprintf")) {
-									  dst.push_back(I);
 								}else if (Name.equals("vfprintf")) {
 									  dst.push_back(I);
 								}else if (Name.equals("vprintf")) {
-									  dst.push_back(I);
-								}else if (Name.equals("vsnprintf")) {
-									  dst.push_back(I);
-								}else if (Name.equals("vsprintf")) {
 									  dst.push_back(I);
 								}else if (Name.equals("fputc")) {
 									  dst.push_back(I);
@@ -165,14 +153,14 @@ bool bSSA::runOnModule(Module &M) {
 									  dst.push_back(I);
 								}
 
-								//Se é um gerador de endereços, insira tal instrução no vector de fonte
+								//If is a source of address
 								if (Name.equals("malloc")) {
 									src.push_back(I);
-								}if (Name.equals("calloc")) {
+								}else if (Name.equals("calloc")) {
 									  src.push_back(I);
-								}if (Name.equals("realloc")) {
+								}else if (Name.equals("realloc")) {
 									  src.push_back(I);
-								}if (Name.equals("realloccf")) {
+								}else if (Name.equals("realloccf")) {
 									  src.push_back(I);
 								}if (Name.equals("valloc")) {
 									  src.push_back(I);
@@ -183,52 +171,60 @@ bool bSSA::runOnModule(Module &M) {
 				}
 			}
 
-		errs()<<src.size()<<" "<<dst.size()<<"\n";
+		//Stats about sources and sinks
+		errs()<<"Num Sources " <<src.size()<<"\n";
+		errs()<<"Nun Sinks " <<dst.size()<<"\n";
 
-		int countWarning=0; //Contagem de subgrafos vulneráveis
-		int totalEdges=0;
+		unsigned int countWarning=0;
+		unsigned int totalControlEdges=0, totalDataEdges=0;
+		unsigned int totalNodes=0;
 
-		//Procura vazamento entre cada par ordenado (fonte, destino). Se houve caminho tainted, adiciona o subgraph no conjunto de subgrafos tainted
-		//int c=0;
+		//Search leaks for each (source, sink). If there is a leak, include the tainted subgraph into set of tainted subgraphs.
+		int c=0;
 		for (unsigned int i=0; i<src.size(); i++) {
 			for (unsigned int j=0; j<dst.size(); j++) {
-				//g->generateSubGraph(src[i], dst[j]);
 				Graph subG = g->generateSubGraph(src[i], dst[j]);
 				Graph::iterator gIt = subG.begin();
 				Graph::iterator gIte = subG.end();
 				if (gIt != gIte) {
-					totalEdges += subG.getNumDataEdges()+subG.getNumControlEdges();
+					totalControlEdges += subG.getNumControlEdges();
+					totalDataEdges +=subG.getNumDataEdges();
 					countWarning++;
+					totalNodes += subG.getNumOpNodes()+subG.getNumVarNodes()+subG.getNumMemNodes();
+					ostringstream ss;
+					ss << "/tmp/subgrafo" << c <<".dot"; c++;
+					subG.toDot("SubGrafo", ss.str()); //Make one file .dot for each tainted subgraph.
 				}
-				//ostringstream ss;
-				//ss << "/tmp/subgrafo" << c <<".dot"; c++;
-				//subG.toDot("SubGrafo", ss.str());
+
 			}
 		}
 
 
 		//Conta quantas arestas do grafo original fazem parte de pelo menos 1 subgrafo contaminado
-		errs()<<g->getTaintedEdges()<<"\n";
+		errs()<<"Tainted Edges " <<g->getTaintedEdges()<<"\n";
 
 		//Número de warnings
-		errs()<<countWarning<<"\n";
+		errs()<<"Num warnings " <<countWarning<<"\n";
 
 		//Tamanho médio do subgrafo vulnerável
-		if (countWarning>0)
-		errs()<<totalEdges/countWarning<<"\n";
+		if (countWarning>0){
+		//Quantidade média de arestas por subgrafo
+			errs()<<"Average Edges per tainted subgraph " <<(totalControlEdges +totalDataEdges)/countWarning<<"\n";
+		//Quantidade média de arestas de controle por subgrafo
+			errs()<<"Average Control Edges per tainted subgraph " <<totalControlEdges/countWarning<<"\n";
+		//Quantidade média de arestas de dados por subgrafo
+			errs()<<"Average Data Edges per tainted subgraph " <<totalDataEdges/countWarning<<"\n";
+		//Quantidade média de nós no subgrafo
+			errs()<<"Average nodes per tainted subgraph " <<totalNodes/countWarning<<"\n";
+		}
+		//Número de nós do grafo original que fazem parte de pelo menos 1 subgrafo contaminado
+		errs()<<"Tainted nodes  " <<g->getTaintedNodesSize()<<"\n";
 
-
-		/*
-							ostringstream ss;
-							ss << "/tmp/subgrafo" << c <<".dot"; c++;
-							subG.toDot("SubGrafo", ss.str()); */
-
-/*
-
-		std::string Filename = "/tmp/grafo.dot";
+		//Make the file .dot including the dependence graph
+		//std::string Filename = "/tmp/grafo.dot";
         //Print dependency graph (in dot format);
-        g->toDot("Grafo", Filename);
-*/
+        //g->toDot("Grafo", Filename);
+
         return false;
 }
 
@@ -346,7 +342,7 @@ void bSSA::findIR (BasicBlock *bBOring, BasicBlock *bBSuss, PostDominatorTree &P
 		for (BasicBlock::iterator bBIt = bBSuss->begin(), bBEnd = bBSuss->end(); bBIt != bBEnd; ++bBIt) {
 			p = predicatesVector.back();
 
-			//Se é uma chamda de função que está no próprio módulo, então rotule tudo que está dentro da mesma.
+			//If is a function call which is defined on the same module
 			if (CallInst *CI = dyn_cast<CallInst>(&(*bBIt))) {
 				Function *F = CI->getCalledFunction();
 				if (F != NULL)
@@ -355,10 +351,10 @@ void bSSA::findIR (BasicBlock *bBOring, BasicBlock *bBSuss, PostDominatorTree &P
 					}
 			}
 
-			//Rotula as demais instruções
+			//Gate the other instructions
 			p->addInst(bBIt);
 		}
-		//If there is sucessor, go there
+		//If there is successor, go there
 		for (unsigned int i=0; i<ti->getNumSuccessors(); i++) {
 			findIR (bBOring, ti->getSuccessor(i), PD);
 		}
@@ -366,7 +362,7 @@ void bSSA::findIR (BasicBlock *bBOring, BasicBlock *bBSuss, PostDominatorTree &P
 
 }
 
-//Rotula com o predicato p, todas as intruções da função F
+//All instrutions of function F are gated with predicate p
 void bSSA::gateFunction (Function *F, Pred *p) {
 	// Iterate over all Basic Blocks of the Function
 	//for (Function::iterator Fit = F->begin(), Fend = F->end(); Fit != Fend; ++Fit) {
