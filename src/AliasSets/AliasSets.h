@@ -1,3 +1,6 @@
+#ifndef __ALIAS_SETS_H__
+#define __ALIAS_SETS_H__
+
 #include "llvm/Pass.h"
 #include "llvm/Function.h"
 #include "llvm/Instruction.h"
@@ -50,3 +53,5 @@ private:
 		int getMapSetKey(int m);
 	};
 }
+
+#endif
