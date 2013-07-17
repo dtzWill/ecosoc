@@ -124,7 +124,11 @@ std::string llvm::OpNode::getShape() {
 }
 
 GraphNode* llvm::OpNode::clone() {
-        return new OpNode(*this);
+
+	OpNode* R = new OpNode(*this);
+	R->Class_ID = this->Class_ID;
+	return R;
+
 }
 
 llvm::Value* llvm::OpNode::getValue() {
@@ -157,7 +161,13 @@ std::string llvm::CallNode::getShape() {
 }
 
 GraphNode* llvm::CallNode::clone() {
-        return new CallNode(*this);
+	CallNode* R = new CallNode(*this);
+	R->Class_ID = this->Class_ID;
+	return R;
+}
+
+CallInst* llvm::CallNode::getCallInst() const {
+	return this->CI;
 }
 
 /*
@@ -199,7 +209,9 @@ std::string llvm::VarNode::getLabel() {
 }
 
 GraphNode* llvm::VarNode::clone() {
-        return new VarNode(*this);
+	VarNode* R = new VarNode(*this);
+    	R->Class_ID = this->Class_ID;
+    	return R;
 }
 
 /*
@@ -221,7 +233,9 @@ std::string llvm::MemNode::getShape() {
 }
 
 GraphNode* llvm::MemNode::clone() {
-        return new MemNode(*this);
+	MemNode* R = new MemNode(*this);
+    	R->Class_ID = this->Class_ID;
+    	return R;
 }
 
 std::string llvm::MemNode::getStyle() {
@@ -235,9 +249,44 @@ int llvm::MemNode::getAliasSetId() const {
 /*
  * Class Graph
  */
-Graph::~Graph() {
-        nodes.clear();
+std::set<GraphNode*>::iterator Graph::begin(){
+	return(nodes.begin());
 }
+
+std::set<GraphNode*>::iterator Graph::end(){
+	return(nodes.end());
+}
+
+Graph::~Graph() {
+	for (std::set<GraphNode*>::iterator it = nodes.begin(); it != nodes.end(); ++it) {
+		GraphNode* g = *it;
+		delete g;
+	}
+
+    nodes.clear();
+
+}
+
+llvm::DenseMap<GraphNode*, bool > taintedMap; //Para estatísticas de quantas arestas do grafo original estão em pelo menos 1 grafo tainted gerado por generateSubgraph()
+
+int Graph::getTaintedEdges () {
+	int countEdges=0;
+
+	for (llvm::DenseMap<GraphNode*, bool>::iterator it = taintedMap.begin(); it != taintedMap.end(); ++it) {
+		std::map<GraphNode*, edgeType> succs = it->first->getSuccessors();
+		for (std::map<GraphNode*, edgeType>::iterator succ = succs.begin(), s_end = succs.end(); succ != s_end; succ++) {
+			if (taintedMap.count(succ->first) > 0) {
+				countEdges++;
+			}
+		}
+	}
+	return (countEdges);
+}
+
+int Graph::getTaintedNodesSize() {
+	return (taintedMap.size());
+}
+
 
 Graph Graph::generateSubGraph(Value *src, Value *dst) {
         Graph G(this->AS);
@@ -246,6 +295,7 @@ Graph Graph::generateSubGraph(Value *src, Value *dst) {
 
         std::set<GraphNode*> visitedNodes1;
         std::set<GraphNode*> visitedNodes2;
+
 
         GraphNode* source = findOpNode(src);
         if (!source) source = findNode(src);
@@ -256,64 +306,91 @@ Graph Graph::generateSubGraph(Value *src, Value *dst) {
                 return G;
         }
 
-        dfsVisit(source, visitedNodes1);
-        dfsVisitBack(destination, visitedNodes2);
+        dfsVisit(source, destination, visitedNodes1);
+        dfsVisitBack(destination, source, visitedNodes2);
 
         //check the nodes visited in both directions
-        for (std::set<GraphNode*>::iterator it = visitedNodes1.begin(); it
-                        != visitedNodes1.end(); ++it) {
+        for (std::set<GraphNode*>::iterator it = visitedNodes1.begin(); it != visitedNodes1.end(); ++it) {
                 if (visitedNodes2.count(*it) > 0) {
                         nodeMap[*it] = (*it)->clone();
+                        //Armazena os nós originais no mapa estático
+                        if (taintedMap.count(*it)==0) {
+                        	taintedMap[*it] = true;
+                        }
                 }
         }
 
         //connect the new vertices
-        for (std::map<GraphNode*, GraphNode*>::iterator it = nodeMap.begin(); it
-                        != nodeMap.end(); ++it) {
+        for (std::map<GraphNode*, GraphNode*>::iterator it = nodeMap.begin(); it != nodeMap.end(); ++it) {
 
                 std::map<GraphNode*, edgeType> succs = it->first->getSuccessors();
 
-                for (std::map<GraphNode*, edgeType>::iterator succ = succs.begin(),
-                                s_end = succs.end(); succ != s_end; succ++) {
+                for (std::map<GraphNode*, edgeType>::iterator succ = succs.begin(), s_end = succs.end(); succ != s_end; succ++) {
                         if (nodeMap.count(succ->first) > 0) {
-
                                 it->second->connect(nodeMap[succ->first], succ->second);
-
                         }
                 }
 
-                if ( ! G.nodes.count(it->second)) G.nodes.insert(it->second);
+                if ( !G.nodes.count(it->second)) {
+                	G.nodes.insert(it->second);
+
+                	if (isa<VarNode>(it->second)) {
+                		G.varNodes[dyn_cast<VarNode>(it->second)->getValue()] = dyn_cast<VarNode>(it->second);
+                	}
+
+                	if (isa<MemNode>(it->second)) {
+                		G.memNodes[dyn_cast<MemNode>(it->second)->getAliasSetId()] = dyn_cast<MemNode>(it->second);
+                	}
+
+                	if (isa<OpNode>(it->second)) {
+                		G.opNodes[dyn_cast<OpNode>(it->second)->getValue()] = dyn_cast<OpNode>(it->second);
+
+                		if (isa<CallNode>(it->second)) {
+                    		G.callNodes[dyn_cast<CallNode>(it->second)->getCallInst()] = dyn_cast<CallNode>(it->second);
+
+                    	}
+                	}
+
+                }
 
         }
+
 
         return G;
 }
 
-void Graph::dfsVisit(GraphNode* u, std::set<GraphNode*> &visitedNodes) {
+
+void Graph::dfsVisit(GraphNode* u, GraphNode* u2, std::set<GraphNode*> &visitedNodes) {
+
 
         visitedNodes.insert(u);
 
+        if (u->getId() == u2->getId()) return;
+
         std::map<GraphNode*, edgeType> succs = u->getSuccessors();
+
 
         for (std::map<GraphNode*, edgeType>::iterator succ = succs.begin(), s_end =
                         succs.end(); succ != s_end; succ++) {
                 if (visitedNodes.count(succ->first) == 0) {
-                        dfsVisit(succ->first, visitedNodes);
+                        dfsVisit(succ->first, u2, visitedNodes);
                 }
         }
 
 }
 
-void Graph::dfsVisitBack(GraphNode* u, std::set<GraphNode*> &visitedNodes) {
+void Graph::dfsVisitBack(GraphNode* u, GraphNode* u2, std::set<GraphNode*> &visitedNodes) {
 
         visitedNodes.insert(u);
+
+        if (u->getId() == u2->getId()) return;
 
         std::map<GraphNode*, edgeType> preds = u->getPredecessors();
 
         for (std::map<GraphNode*, edgeType>::iterator pred = preds.begin(), s_end =
                         preds.end(); pred != s_end; pred++) {
-                if (visitedNodes.count(pred->first) == 0) {
-                        dfsVisitBack(pred->first, visitedNodes);
+                if (visitedNodes.count(pred->first) == 0 && pred->first != u2) {
+                        dfsVisitBack(pred->first, u2, visitedNodes);
                 }
         }
 
@@ -689,7 +766,7 @@ std::map<GraphNode*, std::vector<GraphNode*> > llvm::Graph::getEveryDependency(
         //      errs() << "--- Get every dep --- \n";
         if (GraphNode* startNode = findNode(sink)) {
                 //              errs() << "found sink\n";
-//                      errs() << "Starting search from " << startNode->getLabel() << "\n";
+		//              errs() << "Starting search from " << startNode->getLabel() << "\n";
                 std::set<GraphNode*> sourceNodes = findNodes(sources);
                 std::map<GraphNode*, int> nodeColor;
                 std::list<GraphNode*> workList;
