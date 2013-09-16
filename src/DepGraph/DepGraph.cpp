@@ -1083,20 +1083,24 @@ void llvm::moduleDepGraph::deleteCallNodes(Function* F) {
 	depGraph->deleteCallNodes(F);
 }
 
-std::set<Value*> llvm::Graph::getTaintedValues(
-		std::set<llvm::Value*> sources) {
+std::set<Value*> llvm::Graph::getDepValues(
+		std::set<llvm::Value*> sources, bool forward) {
 
 	std::set<GraphNode*> visited;
 	std::set<GraphNode*> sourceNodes = findNodes(sources);
 	std::list<GraphNode*> worklist;
+	std::map<GraphNode*, edgeType> neigh;
 	for (std::set<GraphNode*>::iterator i = sourceNodes.begin(), e = sourceNodes.end(); i != e; ++i) {
 		worklist.push_back(*i);
 	}
 	while (!worklist.empty()) {
 		GraphNode* n = worklist.front();
 		visited.insert(n);
-		std::map<GraphNode*, edgeType> succ = n->getSuccessors();
-		for (std::map<GraphNode*, edgeType>::iterator i = succ.begin(), e = succ.end(); i != e; ++i) {
+		if (forward)
+			neigh = n->getSuccessors();
+		else
+			neigh = n->getPredecessors();
+		for (std::map<GraphNode*, edgeType>::iterator i = neigh.begin(), e = neigh.end(); i != e; ++i) {
 			if (!visited.count(i->first)) {
 				worklist.push_back(i->first);
 			}
