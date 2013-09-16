@@ -24,7 +24,7 @@ bool TFA::runOnModule(Module &M) {
 	}
 	AddStore &AS = getAnalysis<AddStore> ();
 	depGraph = AS.getModifiedGraph();
-	std::set<Value*> tainted = depGraph->getTaintedValues(inputDepValues);
+	std::set<Value*> tainted = depGraph->getDepValues(inputDepValues);
 	for (Module::iterator F = M.begin(), endF = M.end(); F != endF; ++F) {
 		for (Function::iterator BB = F->begin(), endBB = F->end(); BB != endBB; ++BB) {
 			for (BasicBlock::iterator I = BB->begin(), endI = BB->end(); I
