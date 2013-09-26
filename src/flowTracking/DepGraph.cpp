@@ -509,6 +509,7 @@ void Graph::toDotLines(std::string s, raw_ostream *stream) {
 		VarNode *va;
 		CallNode *ca;
 		ostringstream label;
+		MDNode *N;
 
 		unsigned Line;
 
@@ -521,44 +522,47 @@ void Graph::toDotLines(std::string s, raw_ostream *stream) {
         for (std::set<GraphNode*>::iterator node = nodes.begin(), end = nodes.end(); node != end; node++) {
         		label.str("");
         		if ((op = dyn_cast<OpNode>((*node)))) {
-        			if (op->getValue() != NULL)
-        			if ((A = dyn_cast<Instruction>(op->getValue()))) {
-						if (MDNode *N = A->getMetadata("dbg")) {
-							DILocation Loc(N);
-							File = Loc.getFilename();
-							Line = Loc.getLineNumber();
-						} else {
-							File = "Unknown";
-							Line = -1;
+        			if (op->getValue() != NULL) {
+						if ((A = dyn_cast<Instruction>(op->getValue()))) {
+							if ((N = A->getMetadata("dbg"))) {
+								DILocation Loc(N);
+								File = Loc.getFilename();
+								Line = Loc.getLineNumber();
+								label << File.str() << " " << Line;
+							} else {
+								label << "null";
+							}
 						}
-						label << File.str() << " " << Line;
-        			}
+        			}else
+        				label << "null";
         		}else if ((va = dyn_cast<VarNode>((*node)))) {
-        			if (va->getValue() != NULL)
-        			if ((A = dyn_cast<Instruction>(va->getValue()))) {
-						if (MDNode *N = A->getMetadata("dbg")) {
-							DILocation Loc(N);
-							File = Loc.getFilename();
-							Line = Loc.getLineNumber();
-						} else {
-							File = "Unknown";
-							Line = -1;
+        			if (va->getValue() != NULL) {
+						if ((A = dyn_cast<Instruction>(va->getValue()))) {
+							if ((N = A->getMetadata("dbg"))) {
+								DILocation Loc(N);
+								File = Loc.getFilename();
+								Line = Loc.getLineNumber();
+								label << File.str() << " " << Line;
+							} else {
+								label << "null";
+							}
 						}
-						label << File.str() << " " << Line;
-        			}
-        		}if ((ca = dyn_cast<CallNode>((*node)))) {
-        			if (ca->getValue() != NULL)
-        			if ((A = dyn_cast<Instruction>(ca->getValue()))) {
-        				if (MDNode *N = A->getMetadata("dbg")) {
-        					DILocation Loc(N);
-        					File = Loc.getFilename();
-        					Line = Loc.getLineNumber();
-        				} else {
-        					File = "Unknown";
-        					Line = -1;
-        				}
-        				label << File.str() << " " << Line;
-        			}
+        			}else
+        				label << "null";
+        		}else if ((ca = dyn_cast<CallNode>((*node)))) {
+        			if (ca->getValue() != NULL) {
+						if ((A = dyn_cast<Instruction>(ca->getValue()))) {
+							if ((N = A->getMetadata("dbg"))) {
+								DILocation Loc(N);
+								File = Loc.getFilename();
+								Line = Loc.getLineNumber();
+								label << File.str() << " " << Line;
+							} else {
+								label << "null";
+							}
+						}
+        			}else
+        				label << "null";
         		}
 
 
@@ -573,44 +577,47 @@ void Graph::toDotLines(std::string s, raw_ostream *stream) {
                 for (std::map<GraphNode*, edgeType>::iterator succ = succs.begin(), s_end = succs.end(); succ != s_end; succ++) {
                 					label.str("");
                 					if ((op = dyn_cast<OpNode>((succ->first)))) {
-                						if (op->getValue() != NULL)
-                	        			if ((A = dyn_cast<Instruction>(op->getValue()))) {
-                							if (MDNode *N = A->getMetadata("dbg")) {
-                								DILocation Loc(N);
-                								File = Loc.getFilename();
-                								Line = Loc.getLineNumber();
-                							} else {
-                								File = "Unknown";
-                								Line = -1;
-                							}
-                							label << File.str() << " " << Line;
-                	        			}
-                	        		}else if ((va = dyn_cast<VarNode>((*node)))) {
-                	        			if (va->getValue() != NULL)
-                	        			if ((A = dyn_cast<Instruction>(va->getValue()))) {
-                							if (MDNode *N = A->getMetadata("dbg")) {
-                								DILocation Loc(N);
-                								File = Loc.getFilename();
-                								Line = Loc.getLineNumber();
-                							} else {
-                								File = "Unknown";
-                								Line = -1;
-                							}
-                							label << File.str() << " " << Line;
-                	        			}
-                	        		}if ((ca = dyn_cast<CallNode>((*node)))) {
-                	        			if (ca->getValue() != NULL)
-                	        			if ((A = dyn_cast<Instruction>(ca->getValue()))) {
-                	        				if (MDNode *N = A->getMetadata("dbg")) {
-                	        					DILocation Loc(N);
-                	        					File = Loc.getFilename();
-                	        					Line = Loc.getLineNumber();
-                	        				} else {
-                	        					File = "Unknown";
-                	        					Line = -1;
-                	        				}
-                	        				label << File.str() << " " << Line;
-                	        			}
+                						if (op->getValue() != NULL) {
+											if ((A = dyn_cast<Instruction>(op->getValue()))) {
+												if ((N = A->getMetadata("dbg"))) {
+													DILocation Loc(N);
+													File = Loc.getFilename();
+													Line = Loc.getLineNumber();
+													label << File.str() << " " << Line;
+												} else {
+													label << "null";
+												}
+											}
+                						}else
+                						   label << "null";
+                	        		}else if ((va = dyn_cast<VarNode>((succ->first)))) {
+                	        			if (va->getValue() != NULL) {
+											if ((A = dyn_cast<Instruction>(va->getValue()))) {
+												if ((N = A->getMetadata("dbg"))) {
+													DILocation Loc(N);
+													File = Loc.getFilename();
+													Line = Loc.getLineNumber();
+													label << File.str() << " " << Line;
+												} else {
+													label << "null";
+												}
+											}
+                	        			}else
+                	        			   label << "null";
+                	        		}else if ((ca = dyn_cast<CallNode>((succ->first)))) {
+                	        			if (ca->getValue() != NULL) {
+											if ((A = dyn_cast<Instruction>(ca->getValue()))) {
+												if ((N = A->getMetadata("dbg"))) {
+													DILocation Loc(N);
+													File = Loc.getFilename();
+													Line = Loc.getLineNumber();
+													label << File.str() << " " << Line;
+												} else {
+													label << "null";
+												}
+											}
+                	        			}else
+                	        			  label << "null";
                 	        		}
 
 
