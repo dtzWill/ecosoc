@@ -278,7 +278,7 @@ public:
 	; //Constructor
 	~Graph(); //Destructor - Free adjacent matrix's memory
 
-	std::set<Value*> getDepValues(
+	std::set<GraphNode*> getDepValues(
 			std::set<llvm::Value*> sources, bool forward=true);
 	int getTaintedEdges();
 	int getTaintedNodesSize();

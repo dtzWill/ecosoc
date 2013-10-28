@@ -1083,47 +1083,35 @@ void llvm::moduleDepGraph::deleteCallNodes(Function* F) {
 	depGraph->deleteCallNodes(F);
 }
 
-std::set<Value*> llvm::Graph::getDepValues(
-		std::set<llvm::Value*> sources, bool forward) {
-
+std::set<GraphNode*> llvm::Graph::getDepValues(std::set<llvm::Value*> sources,
+		bool forward) {
+	unsigned long nnodes = nodes.size();
 	std::set<GraphNode*> visited;
 	std::set<GraphNode*> sourceNodes = findNodes(sources);
 	std::list<GraphNode*> worklist;
 	std::map<GraphNode*, edgeType> neigh;
-	for (std::set<GraphNode*>::iterator i = sourceNodes.begin(), e = sourceNodes.end(); i != e; ++i) {
+	for (std::set<GraphNode*>::iterator i = sourceNodes.begin(), e =
+			sourceNodes.end(); i != e; ++i) {
 		worklist.push_back(*i);
 	}
 	while (!worklist.empty()) {
 		GraphNode* n = worklist.front();
-		visited.insert(n);
+		DEBUG(errs() << worklist.size() << "/" << visited.size() << "/" << nnodes << "\n");
+		DEBUG(assert(worklist.size() <= nnodes && "Problem with nodes"));
 		if (forward)
 			neigh = n->getSuccessors();
 		else
 			neigh = n->getPredecessors();
-		for (std::map<GraphNode*, edgeType>::iterator i = neigh.begin(), e = neigh.end(); i != e; ++i) {
+		for (std::map<GraphNode*, edgeType>::iterator i = neigh.begin(), e =
+				neigh.end(); i != e; ++i) {
 			if (!visited.count(i->first)) {
 				worklist.push_back(i->first);
+				visited.insert(i->first);
 			}
 		}
 		worklist.pop_front();
 	}
-	std::set<Value*> result;
-	for (std::set<GraphNode*>::iterator i =  visited.begin(), e = visited.end(); i != e; ++i) {
-		if (VarNode* VN = dyn_cast<VarNode>(*i)) {
-//			errs() << (*i)->getLabel() << "\n";
-			Value* v = VN->getValue();
-			result.insert(v);
-//			errs() << *v << "\n";
-		}
-		else if (MemNode* MN = dyn_cast<MemNode>(*i)) {
-			std::set<Value*> alias = MN->getAliases();
-			for (std::set<Value*>::iterator ii = alias.begin(), ee = alias.end(); ii != ee; ++ii) {
-				result.insert(*ii);
-//				errs() << **ii << "\n";
-			}
-		}
-	}
-	return result;
+	return visited;
 }
 
 llvm::Graph::Guider::Guider(Graph* graph) {
