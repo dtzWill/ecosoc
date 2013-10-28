@@ -23,6 +23,7 @@
 #include "../DepGraph/InputValues.h"
 #include "../DepGraph/InputDep.h"
 #include "../DepGraph/AddStore.h"
+#include "../bSSA/bSSA.h"
 #include<set>
 #include<utility>
 
@@ -35,10 +36,12 @@ class TFA : public ModulePass {
 		std::set<Value*> inputDepValues;
 		bool runOnModule(Module &M);
 		bool isValueInpDep(Value* V);
-//		bool structHasArray(StructType* ST);
+		std::set<GraphNode*> tainted;
 	public:
 		static char ID;
 		void getAnalysisUsage(AnalysisUsage &AU) const;
+		std::set<GraphNode*> getTaintedValues();
+		bool isValueTainted(Value* v);
 		TFA();
 
 };
