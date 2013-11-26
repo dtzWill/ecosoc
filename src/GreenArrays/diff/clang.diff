@@ -1,0 +1,13 @@
+Index: lib/CodeGen/CodeGenModule.cpp
+===================================================================
+--- lib/CodeGen/CodeGenModule.cpp (revision 185078)
++++ lib/CodeGen/CodeGenModule.cpp (working copy)
+@@ -647,7 +647,7 @@
+   if (!SanitizerBlacklist.isIn(*F)) {
+     // When AddressSanitizer is enabled, set SanitizeAddress attribute
+     // unless __attribute__((no_sanitize_address)) is used.
+-    if (SanOpts.Address && !D->hasAttr<NoSanitizeAddressAttr>())
++    if (!D->hasAttr<NoSanitizeAddressAttr>())
+       B.addAttribute(llvm::Attribute::SanitizeAddress);
+     // Same for ThreadSanitizer and __attribute__((no_sanitize_thread))
+     if (SanOpts.Thread && !D->hasAttr<NoSanitizeThreadAttr>()) {
