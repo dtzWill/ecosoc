@@ -39,17 +39,19 @@ namespace llvm {
 	class hammock : public FunctionPass {
 
 	public:
-        	bool runOnFunction(Function&);
+        	bool runOnFunction(Function& );
         	static char ID;
         	hammock() : FunctionPass(ID) {}
+        	bool functionIsHammock;
 
 
 	private:
+        	bool checkHammock (Function &f); //return true if the subgraph denoted by bBlocks set, is a hammock graph
         	void getAnalysisUsage(AnalysisUsage &AU) const;
         	std::set<BasicBlock*> bBlocks;	//set which contains basic blocks in the influence region of an basic block
         	void processNode(BasicBlock *BB,  PostDominatorTree &PD); //start findIR
         	void findIR(BasicBlock *bBOring, BasicBlock *bBSuss, PostDominatorTree &PD); //create a subgraph in bBlocks set from an initial basic block
-        	bool checkHammock (Function *f); //return true if the subgraph denoted by bBlocks set, is a hammock graph
+
 
  	};
 

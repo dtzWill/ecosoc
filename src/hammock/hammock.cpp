@@ -4,6 +4,7 @@
 
 using namespace llvm;
 
+
 void hammock::getAnalysisUsage(AnalysisUsage &AU) const {
 		AU.addRequired<PostDominatorTree>();
         // This pass will not modifies the program nor CFG
@@ -14,6 +15,8 @@ void hammock::getAnalysisUsage(AnalysisUsage &AU) const {
 //For each function, this method is executed
 bool hammock::runOnFunction(Function &F) {
 
+		functionIsHammock = true;
+
 		PostDominatorTree &PD = getAnalysis<PostDominatorTree>();
 		for (Function::iterator Fit = F.begin(), Fend = F.end(); Fit != Fend; ++Fit) {
 			//Mark BasicBlock
@@ -21,10 +24,13 @@ bool hammock::runOnFunction(Function &F) {
 			//Find Influence Region of the BasicBlock
 			processNode(Fit, PD);
 			//Check if some unmarked basic block goes to influence region
-			if (checkHammock(&F))
+			if (checkHammock(F)) {
 					++numHammock;
-			else
+
+			} else {
 					++numNonHammock;
+					functionIsHammock = false;
+			}
 			//Unmark all nodes
 			bBlocks.empty();
 		}
@@ -33,9 +39,9 @@ bool hammock::runOnFunction(Function &F) {
 }
 
 //Return true if the subgraph denoted by bBlocks set attribute is a hammock graph
-bool hammock::checkHammock (Function *F) {
+bool hammock::checkHammock (Function &F) {
 	//For each basicBlock
-	for (Function::iterator Fit = F->begin(), Fend = F->end(); Fit != Fend; ++Fit) {
+	for (Function::iterator Fit = F.begin(), Fend = F.end(); Fit != Fend; ++Fit) {
 		TerminatorInst *ti = Fit->getTerminator();
 
 		if (bBlocks.count(Fit)==0) { //If it is out of subgraph
@@ -45,13 +51,13 @@ bool hammock::checkHammock (Function *F) {
 					return false;
 				}
 			}
-		}else { //If it is in subgrah
+		}else { /*//If it is in subgrah
 			//Check if some respective successor is NOT marked
 			for (unsigned int i=0; i<ti->getNumSuccessors(); i++) {
 				if (bBlocks.count(ti->getSuccessor(i))==0) {
 					return false;
 				}
-			}
+			}*/
 		}
 	}
 
