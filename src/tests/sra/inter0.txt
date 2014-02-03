@@ -1,0 +1,12 @@
+int foo(int size, int b) {
+  int i = 1;
+  if (b < size) {
+    i = b;
+  }
+  return i;
+}
+
+int main(int argc, char** argv) {
+  int x = foo(argc, 2);
+  return x;
+}
