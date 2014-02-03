@@ -1,0 +1,13 @@
+#include <stdio.h>
+
+int main(int argc, char** argv) {
+  int i = argc + 1;
+  int j = i;
+  int sum;
+  if (i < 3) {
+    sum = j - 1;
+  } else {
+    sum = j + 1;
+  }
+  return sum;
+}

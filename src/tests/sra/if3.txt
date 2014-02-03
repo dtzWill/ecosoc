@@ -1,0 +1,9 @@
+int main(int argc, char** argv) {
+  int i = 4 * argc;
+  if (argc < 2) {
+    i -= 4;
+  } else {
+    i = 4;
+  }
+  return i;
+}
