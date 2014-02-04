@@ -101,12 +101,12 @@ Range Range::widen(const Range& Other) const {
 
 bool Range::operator==(const Range& other) const {
   return getLower().eq(other.getLower())
-    && getUpper().eq(other.getUpper());
+     && getUpper().eq(other.getUpper());
 }
 
 bool Range::operator!=(const Range& other) const {
   return getLower().ne(other.getLower())
-    || getUpper().ne(other.getUpper());
+     || getUpper().ne(other.getUpper());
 }
 
 Range Range::operator+(const Range& Other) const {
