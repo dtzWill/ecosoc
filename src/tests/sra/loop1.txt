@@ -1,0 +1,11 @@
+int main(int argc, char** argv) {
+  int i = 0;
+  int j = argc;
+  int sum = 0;
+  while (i < j) {
+    sum += i + j;
+    i++;
+    j--;
+  }
+  return sum;
+}
