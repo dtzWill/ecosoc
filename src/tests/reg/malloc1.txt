@@ -1,0 +1,12 @@
+#include <stdlib.h>
+
+int main(int argc, char** argv) {
+  int* p0;
+  if (argc == 1) {
+    p0 = (int*)malloc(80 * sizeof(int));
+  } else {
+    int size = atoi(argv[1]);
+    p0 = (int*)malloc(size * sizeof(int));
+  }
+  return p0[0];
+}

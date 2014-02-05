@@ -1,0 +1,10 @@
+#include <stdlib.h>
+
+int main(int argc, char** argv) {
+  int* p0 = (int*)malloc(argc * sizeof(int));
+  *p0 = 0;
+  free(p0);
+  p0 = (int*)malloc(sizeof(int));
+  *p0 = 1;
+  return *p0;
+}

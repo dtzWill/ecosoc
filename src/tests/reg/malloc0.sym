@@ -1,4 +1,4 @@
-phi(argv) = [0, 0]
-index(add.ptr)[tmp1] = [-4, -4+4*argc]
 noop(tmp1)[call] = [0, 4*argc]
 base(call) = [0, 4*argc]
+phi(argv) = [0, 0]
+index(add.ptr)[tmp1] = [-4, -4+4*argc]
