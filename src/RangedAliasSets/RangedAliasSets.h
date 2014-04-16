@@ -10,6 +10,7 @@
 #include "llvm/ADT/APInt.h"
 #include <set>
 #include <cstdlib>
+#include <cstdio>
 #include <cstring>
 #include <vector>
 #include "../../AliasSets/AliasSets.h"
@@ -28,8 +29,36 @@ class RangedAliasSets: public ModulePass{
 	std::vector<Instruction*>
 		orderInstructions
 			(std::vector<Instruction*> unordered, Module* M);
+	//Holds a Primitive Layout for a determined Type
+	struct PrimitiveLayout
+	{
+		Type * type;
+		std::vector<int> layout;
+		PrimitiveLayout(Type* ty, std::vector<int> lay)
+		{
+			type = ty;
+			layout = lay;
+		}
+	};
+	struct NumPrimitive
+	{
+		Type * type;
+		int num;
+		NumPrimitive(Type* ty, int n)
+		{
+			type = ty;
+			num = n;
+		}
+	};
+	std::vector<PrimitiveLayout*> PrimitiveLayouts;
+	std::vector<NumPrimitive*> NumPrimitives;
+	std::vector<int> getPrimitiveLayout(Type* type);
+	int getNumPrimitives(Type* type);
+	llvm::Type* getTypeInside(Type* type, int i);
+	int getSumBehind(std::vector<int> v, int i);
 	//Holds a memory range for a determined Value
-	struct MemRange {
+	struct MemRange 
+	{
 		Value* mem;
 		Value* aloc;
 		APInt lower;
@@ -54,6 +83,7 @@ class RangedAliasSets: public ModulePass{
 	void printMemRanges(llvm::DenseMap<int, std::set<MemRange*> > *MemRangeSets);
 	void printRangeAliasSets(llvm::DenseMap<int, std::set<MemRange*> > *RangedAliasSets);
 	void printNewAliasSets(llvm::DenseMap<int, std::set<Value*> > *NewAliasSets);
+	void printPrimitiveLayouts(std::vector<PrimitiveLayout*> PrimitiveLayouts);
 	
 	public:
 	//LLVM framework methods and atributes
