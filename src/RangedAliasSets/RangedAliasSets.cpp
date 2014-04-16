@@ -1,6 +1,10 @@
 #define DEBUG_TYPE "ranged-alias-sets"
 #include "RangedAliasSets.h"
 
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/ValueSymbolTable.h"
+#include "llvm/ADT/SmallVector.h"
+
 using namespace llvm;
 
 /*
@@ -33,6 +37,134 @@ RangedAliasSets::MemRange::FindByValue //Name
 			return *i;
 	
 	return NULL;
+}
+
+/*
+* Calculate Primitive Layouts and Number of elements.
+*/
+
+//Returns the sum of previous elements of vector
+int 
+RangedAliasSets::getSumBehind
+(std::vector<int> v, int i)
+{
+	int s = 0;
+	for(int j = i-1; j >= 0; j--)
+		s += v[j];
+	return s;
+}
+
+//Returns the type of the ith element inside type
+Type* 
+RangedAliasSets::getTypeInside
+(Type* type, int i)
+{
+	if(type->isPointerTy())
+		return type->getPointerElementType();
+	else if(type->isArrayTy())
+		return type->getArrayElementType();
+	else if(type->isStructTy())
+		return type->getStructElementType(i);
+	else if(type->isVectorTy())
+		return type->getVectorElementType();
+	else
+		return NULL;	
+}
+	
+//Returns the number of primitive elements of type
+int //returns
+RangedAliasSets::getNumPrimitives //Name
+(Type* type) //Parameter
+{
+	//Verifies if this number of primitives was calculated already
+	for(int i = 0; i < NumPrimitives.size(); i++)
+		if(NumPrimitives[i]->type == type)
+			return NumPrimitives[i]->num;
+	
+	//if not
+	int np = 1;
+	if(type->isArrayTy())
+	{
+		int num = type->getArrayNumElements();
+		Type* arrtype = type->getArrayElementType();
+		int arrtypenum = getNumPrimitives(arrtype); 
+		np = num * arrtypenum;
+	}
+	else if(type->isStructTy())
+	{
+		int num = type->getStructNumElements();
+		np = 0;
+		for(int i = 0; i < num; i++)
+		{
+			Type* structelemtype = type->getStructElementType(i);
+			np += getNumPrimitives(structelemtype);
+		}
+	}
+	else if(type->isVectorTy())
+	{
+		int num = type->getVectorNumElements();
+		Type* arrtype = type->getVectorElementType();
+		int arrtypenum = getNumPrimitives(arrtype); 
+		np = num * arrtypenum;
+	}
+	
+	NumPrimitives.insert(NumPrimitives.end(), new NumPrimitive(type, np));
+	return np;
+}
+
+//Returns a vector with the primitive layout of type
+std::vector<int> //returns
+RangedAliasSets::getPrimitiveLayout //Name
+(Type* type) //Parameter
+{
+	//Verifies if this layout was calculated already
+	for(int i = 0; i < PrimitiveLayouts.size(); i++)
+		if(PrimitiveLayouts[i]->type == type)
+			return PrimitiveLayouts[i]->layout;
+	
+	//if not
+		
+	if(type->isArrayTy())
+	{
+		int num = type->getArrayNumElements();
+		std::vector<int> pm (num);
+		Type* arrtype = type->getArrayElementType();
+		int arrtypenum = getNumPrimitives(arrtype); 
+		for(int i = 0; i < num; i++)
+			pm[i] = arrtypenum;
+		PrimitiveLayouts.insert(PrimitiveLayouts.end(), new PrimitiveLayout(type, pm));
+		return pm;
+	}
+	else if(type->isStructTy())
+	{
+		int num = type->getStructNumElements();
+		std::vector<int> pm (num);
+		for(int i = 0; i < num; i++)
+		{
+			Type* structelemtype = type->getStructElementType(i);
+			pm[i] = getNumPrimitives(structelemtype);
+		}
+		PrimitiveLayouts.insert(PrimitiveLayouts.end(), new PrimitiveLayout(type, pm));
+		return pm;
+	}
+	else if(type->isVectorTy())
+	{
+		int num = type->getVectorNumElements();
+		std::vector<int> pm (num);
+		Type* arrtype = type->getVectorElementType();
+		int arrtypenum = getNumPrimitives(arrtype); 
+		for(int i = 0; i < num; i++)
+			pm[i] = arrtypenum;
+		PrimitiveLayouts.insert(PrimitiveLayouts.end(), new PrimitiveLayout(type, pm));
+		return pm;
+	}
+	else
+	{
+		std::vector<int> pm (1);
+		pm[0] = 1;
+		PrimitiveLayouts.insert(PrimitiveLayouts.end(), new PrimitiveLayout(type, pm));
+		return pm;
+	}	
 }
 
 /*
@@ -184,32 +316,6 @@ RangedAliasSets::printMemRanges //Name
 	}
 	
 	errs() << "--------------------\n";
-	
-	//This commented code is here for it's usefulness and because i'll be using parts of it in the future
-	/*for (llvm::DenseMap<int, std::set<MemRange*> >::iterator i = MemRangeSets->begin(), e = MemRangeSets->end(); 
-	i != e; ++i)
-	{
-		for (std::set<MemRange*>::iterator ii = i->second.begin(), ee = i->second.end(); 
-    ii != ee; ++ii)
-    {
-      	if(isa<GetElementPtrInst>(*((*ii)->mem))){
-			 		//Mem Range basePtrMemRange + indexes range
-       		Value* base_ptr = ((GetElementPtrInst*)((*ii)->mem))->getPointerOperand();
-      		errs() << *(base_ptr) << "\n";
-      		errs() << *(base_ptr->getType()) << "\n";
-      		Type* x = base_ptr->getType();
-      		if(x->isPointerTy())
-      		{
-      			x = x->getPointerElementType();
-      			if(x->isArrayTy())
-      				errs() << x->getArrayNumElements() << "ARRAY\n";
-      		}
-      			
-      	}
-      	
-	  }
-	}
-	errs() << "--------------------\n";*/
 }
 
 void //Returns Nothing 
@@ -245,6 +351,22 @@ RangedAliasSets::printNewAliasSets //Name
 	errs() << "-------------------------\n\n";
 }
 
+void //Returns Nothing 
+RangedAliasSets::printPrimitiveLayouts //Name
+(std::vector<PrimitiveLayout*> PrimitiveLayouts) //Parameters
+{
+	errs() << "\n-------------------------\nPrimitive Layouts:" << "\n";
+	for(int i = 0; i < PrimitiveLayouts.size(); i++)
+	{
+		errs() << *(PrimitiveLayouts[i]->type) << ":\n";
+		for(int j = 0; j < PrimitiveLayouts[i]->layout.size(); j++)
+			errs() << PrimitiveLayouts[i]->layout[j] << "  ";
+		errs() << "\n";
+	}
+	
+	errs() << "-------------------------\n\n";
+}
+
 /*
 *
 * LLVM framework Main Function
@@ -276,12 +398,6 @@ RangedAliasSets::runOnModule //Name
 	i != e; ++i) if(i->second.size() > 0) NAliasSets++;
 	DEBUG(printAliasSets(&AliasSets));
 		
-	/*
-	* Calculate Structs Primitive Layouts.
-	*/
-	
-	//????
-	
 	/*
 	* Selects Interesting Sets, wich are the ones the pass will try do
 	* divide. These sets must have just one memory base pointer, more than one
@@ -393,49 +509,157 @@ RangedAliasSets::runOnModule //Name
       	//Mem Range basePtrMemRange + indexes range
        	Value* base_ptr = ((GetElementPtrInst*)*ii)->getPointerOperand();
        	MemRange* base_range = MemRange::FindByValue(base_ptr, memSet);
+       	if(base_range == NULL)
+       	{
+       		error = true;
+       		break;
+       	}
        	
        	/*
        	* Superficial analysis implementation, if base_ptr isn't of the same
        	* type as the alocation ptr than it means this pointer is looking 
        	* inside a struct and thus its memory range will be the same as
        	* it's base_ptr
-       	*/ 
+       	* 
        	if(base_ptr->getType() != base_type)
        	{
        		memSet.insert(new MemRange(*ii,base_range->lower,base_range->higher, base_aloc));
        		continue;
        	}
+       	/*-----------------------------------------------------------------*/
        	
        	//Summing up all indexes
        	APInt lower_range;
        	APInt higher_range;
        	lower_range = base_range->lower;
        	higher_range = base_range->higher;
-       	for(User::op_iterator idx = ((GetElementPtrInst*)*ii)->idx_begin(), 
-       	idxe = ((GetElementPtrInst*)*ii)->idx_end(); idx != idxe; idx++)
+       	
+       	//Number of primitive elements
+       	Type* base_ptr_type = base_ptr->getType();
+       	int base_ptr_num_primitive = getNumPrimitives(base_ptr_type->getPointerElementType());
+       	
+       	//parse first index
+       	User::op_iterator idx = ((GetElementPtrInst*)*ii)->idx_begin();
+       	Value* indx = idx->get();
+        if(isa<ConstantInt>(*indx))
+        {
+         	APInt constant = ((ConstantInt*)indx)->getValue();
+        	int higher_bitwidth = (lower_range.getBitWidth() > constant.getBitWidth()) ?
+        		lower_range.getBitWidth() :
+        		constant.getBitWidth();
+        	higher_bitwidth = (higher_range.getBitWidth() > higher_bitwidth) ?
+        		higher_range.getBitWidth() :
+        		higher_bitwidth;
+        		
+        	APInt bpnp (higher_bitwidth, base_ptr_num_primitive);
+        	
+        	lower_range = lower_range.sextOrTrunc(higher_bitwidth);
+        	higher_range = higher_range.sextOrTrunc(higher_bitwidth);
+        	constant = constant.sextOrTrunc(higher_bitwidth);
+        	
+        	lower_range = (lower_range == Min) ? Min : 
+        	(lower_range + bpnp * constant);
+        	
+        	higher_range = (higher_range == Max) ? Max : 
+        	(higher_range + bpnp * constant);
+        }
+        else
+        {
+        	Range r = ra.getRange(indx);
+        	if(!r.isUnknown())
+         	{
+          	APInt rl = r.getLower();
+        		APInt ru = r.getUpper();
+          	
+          	int higher_bitwidth = (lower_range.getBitWidth() > rl.getBitWidth()) ?
+        			lower_range.getBitWidth() :
+        			rl.getBitWidth();
+        		higher_bitwidth = (higher_range.getBitWidth() > higher_bitwidth) ?
+        			higher_range.getBitWidth() :
+        			higher_bitwidth;
+        			
+        		APInt bpnp (higher_bitwidth, base_ptr_num_primitive);
+        	
+        		lower_range = lower_range.sextOrTrunc(higher_bitwidth);
+        		higher_range = higher_range.sextOrTrunc(higher_bitwidth);
+        		rl = rl.sextOrTrunc(higher_bitwidth);
+        		ru = ru.sextOrTrunc(higher_bitwidth);
+          
+          	lower_range = (lower_range == Min || rl == Min) ? Min : 
+          	(lower_range + bpnp * rl); 
+        			
+        		higher_range = (higher_range == Max || ru == Max) ? Max : 
+        		(higher_range + bpnp * ru);
+      	  }
+         		
+       	}
+       	
+       	//parse sequantial indexes 
+       	idx++;
+       	APInt index = Zero;
+       	for(User::op_iterator idxe = ((GetElementPtrInst*)*ii)->idx_end(); idx != idxe; idx++)
        	{
-       		Value* indx = idx->get();
-         	if(isa<ConstantInt>(*indx))
-         	{
-         		lower_range = (lower_range == Min) ? Min : 
-         		(lower_range + (((ConstantInt*)indx)->getValue()).sextOrTrunc(lower_range.getBitWidth()) );
-         		
-         		higher_range = (higher_range == Max) ? Max : 
-         		(higher_range + (((ConstantInt*)indx)->getValue()).sextOrTrunc(higher_range.getBitWidth()) );
-         	}
-         	else
-         	{
-         		Range r = ra.getRange(indx);
-           	if(!r.isUnknown())
-           	{
-            	lower_range = (lower_range == Min || r.getLower() == Min) ? Min : 
-            	(lower_range + r.getLower()); 
-         			
-         			higher_range = (higher_range == Max || r.getUpper() == Max) ? Max : 
-         			(higher_range + r.getUpper());
-      	    }
-         		
-       		}
+       		//Calculating Primitive Layout
+       		base_ptr_type = getTypeInside(base_ptr_type, index.getSExtValue());
+     			std::vector<int> base_ptr_primitive_layout = getPrimitiveLayout(base_ptr_type);
+     			
+     			Value* indx = idx->get();
+        	if(isa<ConstantInt>(*indx))
+        	{
+        	 	APInt constant = ((ConstantInt*)indx)->getValue();
+        		int higher_bitwidth = (lower_range.getBitWidth() > constant.getBitWidth()) ?
+        			lower_range.getBitWidth() :
+        			constant.getBitWidth();
+        		higher_bitwidth = (higher_range.getBitWidth() > higher_bitwidth) ?
+        			higher_range.getBitWidth() :
+        			higher_bitwidth;
+		      			
+		      	APInt bpnp (higher_bitwidth, base_ptr_num_primitive);
+		      	
+		      	lower_range = lower_range.sextOrTrunc(higher_bitwidth);
+		      	higher_range = higher_range.sextOrTrunc(higher_bitwidth);
+		      	constant = constant.sextOrTrunc(higher_bitwidth);
+		      	
+		      	lower_range = (lower_range == Min) ? Min : 
+		      	(lower_range + APInt(higher_bitwidth, getSumBehind(base_ptr_primitive_layout, constant.getSExtValue()) ) );
+		      	
+		      	higher_range = (higher_range == Max) ? Max : 
+		      	(higher_range + APInt(higher_bitwidth, getSumBehind(base_ptr_primitive_layout, constant.getSExtValue()) ) );
+		      	
+		      	index = constant;
+		      }
+		      else
+		      {
+		      	Range r = ra.getRange(indx);
+		      	if(!r.isUnknown())
+		       	{
+		        	APInt rl = r.getLower();
+		      		APInt ru = r.getUpper();
+		        	
+		        	int higher_bitwidth = (lower_range.getBitWidth() > rl.getBitWidth()) ?
+		      			lower_range.getBitWidth() :
+		      			rl.getBitWidth();
+		      		higher_bitwidth = (higher_range.getBitWidth() > higher_bitwidth) ?
+		      			higher_range.getBitWidth() :
+		      			higher_bitwidth;
+		      			
+		      		APInt bpnp (higher_bitwidth, base_ptr_num_primitive);
+		      	
+		      		lower_range = lower_range.sextOrTrunc(higher_bitwidth);
+		      		higher_range = higher_range.sextOrTrunc(higher_bitwidth);
+		      		rl = rl.sextOrTrunc(higher_bitwidth);
+		      		ru = ru.sextOrTrunc(higher_bitwidth);
+		        
+		        	lower_range = (lower_range == Min || rl == Min) ? Min : 
+		        	(lower_range + APInt(higher_bitwidth, getSumBehind(base_ptr_primitive_layout, rl.getSExtValue()) ) ); 
+		      			
+		      		higher_range = (higher_range == Max || ru == Max) ? Max : 
+		      		(higher_range + APInt(higher_bitwidth, getSumBehind(base_ptr_primitive_layout, ru.getSExtValue()) ) );
+		      		
+		      		index = Zero;
+		    	  }
+		       		
+		     	}
        	}
          	
       	memSet.insert(new MemRange(*ii,lower_range,higher_range, base_aloc));
@@ -449,6 +673,8 @@ RangedAliasSets::runOnModule //Name
       else //Any other instruction
       {
       	error = true;
+      	DEBUG(errs() << (**ii));
+      	DEBUG(int xxx = getchar());
       	break;
       }
   	}
@@ -462,7 +688,7 @@ RangedAliasSets::runOnModule //Name
 	DEBUG(printMemRanges(&MemRangeSets));
 	
 	/*
-	* Building Ranges Alias Sets
+	* Building Range Alias Sets
 	*/
 	
 	//llvm::DenseMap<int, std::set<MemRange*> > RangeAliasSets;
@@ -578,6 +804,8 @@ RangedAliasSets::runOnModule //Name
 	/*
 	* Done, end of analysis
 	*/
+	DEBUG(printPrimitiveLayouts(PrimitiveLayouts));
+	
 }
 
 /*
