@@ -1,0 +1,3 @@
+#!/bin/bash
+
+CC=gcc CFLAGS=-fsanitize=address LD=gcc LDFLAGS=-fsanitize=address make $@

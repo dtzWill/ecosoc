@@ -1,0 +1,1 @@
+/usr/bin/c++  -fPIC -g   -shared -Wl,-soname,LLVMMerge.so -o LLVMMerge.so CMakeFiles/LLVMMerge.dir/Merge.cpp.o -L/usr/local/lib -ldl -lpthread -lz -Wl,-rpath,/usr/local/lib: 

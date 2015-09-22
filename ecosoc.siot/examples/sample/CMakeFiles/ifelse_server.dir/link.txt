@@ -1,0 +1,1 @@
+/usr/bin/gcc  -g    CMakeFiles/ifelse_server.dir/ifelse_server.c.o  -o ifelse_server -rdynamic -L/usr/local/lib 

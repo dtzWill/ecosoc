@@ -1,0 +1,5 @@
+#!/bin/bash
+
+#clang  -march=i386 -m32 -emit-llvm -c -fsanitize=address -c -mllvm -stats
+
+CC=clang CFLAGS="-march=i386 -m32 -emit-llvm -c -fsanitize=address -c -mllvm -stats" LD=llvm-link AR=llvm-link LDFLAGS=" " make $@

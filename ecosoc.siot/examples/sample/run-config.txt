@@ -1,0 +1,6 @@
+MergePassPath=./LLVMMerge.so
+PADriverPassPath=./LLVMPADriver.so
+AliasSetPassPath=./LLVMAliasSets.so
+NetLevelPassPath=./LLVMNetLevel.so
+NetDepGraphPassPath=./LLVMNetDepGraph.so
+-GRAPH=1

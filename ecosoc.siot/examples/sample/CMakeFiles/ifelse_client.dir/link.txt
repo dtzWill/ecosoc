@@ -1,0 +1,1 @@
+/usr/bin/gcc  -g    CMakeFiles/ifelse_client.dir/ifelse_client.c.o  -o ifelse_client -rdynamic -L/usr/local/lib 

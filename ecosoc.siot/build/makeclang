@@ -1,0 +1,3 @@
+#!/bin/bash
+
+TARGET=minimal-net CC=clang CFLAGS=-emit-llvm LD=llvm-link AR=llvm-link LDFLAGS=" " make $@

@@ -1,0 +1,64 @@
+SIoT
+====
+
+Securing Internet of Things.
+
+This projects aims to protect code of Internet of Things (IoT) aggainst attacks 
+like Buffer Overflow, Integer Overflow, SQL Injection, etc. 
+The atual version focus on Buffer Overflow. 
+Our solution, SIoT, makes use of a pioneering solution to pinpoint vulnerabilities: we crosscheck data from communicating nodes.
+See more details in our SBRC Paper (Portuguese): http://sbrc2014.ufsc.br/anais/files/trilha/ST14-1.pdf
+
+Directory Organization: 
+-----------------------
+examples: there are basic, client/server and contiki examples.
+
+src: there are two auxiliar Pass(PADriver and AliasSets), a Merge Pass used by SIoT to merge .bc files, NetLevel used 
+     to find the level of sends and receives and the NetDepGraph directory. 
+     In NetDepGraph directory there are 3 Pass: InputDep, NetDepGraph and NetVulArrays. 
+     InputDep find the user inputs including files and network. 
+     NetDepGraph creates the DepGraph of distributed system. 
+     And NetVulArray crosscheck the paths between inputs and Arrays using NetDepGraph and InputDep. 
+
+Prerequisites:
+--------------
+LLVM 3.3 - (See http://llvm.org/docs/GettingStarted.html or use the script install-llvm.sh).
+
+Boost (http://www.boost.org/ or in Ubuntu: sudo apt-get install libboost-program-options-dev).
+
+SIoT build:
+-----------
+echo "Build SIoT"
+mkdir siot-build
+cd siot-build
+cmake -DCMAKE_BUILD_TYPE=Debug -DLLVM_REQUIRES_RTTI=1 -G "Eclipse CDT4 - Unix Makefiles" -DCMAKE_ECLIPSE_GENERATE_SOURCE_PROJECT=TRUE -DCMAKE_ECLIPSE_MAKE_ARGUMENTS=-j4 -DLLVM_REQUIRES_EH=1 ../ecosoc
+make -j4
+
+
+Run SIoT:
+---------
+-Build the client and daemon bc files.
+
+-Copy the file "siot" executable to the folder where those bc files are or put it in the PATH.
+
+-Create the run-config.txt like the exexample in examples/samples/run-config.txt.
+
+-The user needs to make a text file containing, in each line and separeted by comma, the client, daemon, send function and receive function names.
+
+-> See an example in examples/samples/test.txt.
+
+
+
+Build ContikiOS:
+---------
+-To build ContikiOS we can download it with the script download-contiki.sh, doing:
+./download-contiki.sh
+
+-To compile it, we can use the script compile-contiki.sh, that unzip the downloaded file,
+ configure it, and compile the hello-world example application using gcc with address-sanitizer:
+./compile-contiki.sh
+
+-To compile any example, we have 3 scripts to attend some options, they are:
+makegccasan - it compiles using gcc with address-sanitizer
+makeclangasan - it compiles using llvm with address-sanitizer
+makeclang - it compiles using llvm WITHOUT address-sanitizer - use this mode to work with SIoT

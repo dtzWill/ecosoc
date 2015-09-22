@@ -1,0 +1,1 @@
+/usr/bin/gcc  -g    CMakeFiles/loop_server.dir/loop_server.c.o  -o loop_server -rdynamic -L/usr/local/lib 

@@ -1,0 +1,1 @@
+/usr/bin/gcc  -g    CMakeFiles/loop_client.dir/loop_client.c.o  -o loop_client -rdynamic -L/usr/local/lib 
